@@ -5,7 +5,7 @@
 
   &#xa0;
 
-  <!-- <a href="https://northeasterncs2510fundamentalsofcomputerscience2.netlify.app">Demo</a> -->
+  <!-- <a href="https://TrinityENGR323EmbeddedSystemDesign.netlify.app">Demo</a> -->
 </div>
 
 <h1 align="center">Trinity ENGR323 Embedded System Design</h1>
@@ -29,7 +29,7 @@
 <!-- Status -->
 
 <!-- <h4 align="center"> 
-    🚧  Northeastern CS2510 Fundamentals Of Computer Science 2 🚀 Under construction...  🚧
+    🚧  Trinity ENGR323 Embedded System Design 🚀 Under construction...  🚧
 </h4> 
 
 <hr> -->
