@@ -1,0 +1,6 @@
+ORG 0000h
+AJMP MAINP
+
+
+		ORG 0030h
+MAINP:	MOV P1, #0h

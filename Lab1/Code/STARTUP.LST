@@ -1,0 +1,280 @@
+A51 MACRO ASSEMBLER  STARTUP                                                              02/06/2025 11:56:51 PAGE     1
+
+
+MACRO ASSEMBLER A51 V8.01
+NO OBJECT MODULE REQUESTED
+ASSEMBLER INVOKED BY: C:\Keil\C51\BIN\A51.EXE STARTUP.A51 SET(SMALL) DEBUG EP
+
+LOC  OBJ            LINE     SOURCE
+
+                       1                 NAME    MULTI_7SEG
+                       2                 ;----------------------------------------------------------
+                       3                 ;  Display “1234” on 4-digit 7-seg using Timer0 ISR @ 5ms
+                       4                 ;  8051 @ 12MHz
+                       5                 ;
+                       6                 ;  P1.0–P1.3 = BCD lines to 7-seg decoder
+                       7                 ;  P1.4–P1.5 = which digit is active
+                       8                 ;
+                       9                 ;  Timer0 mode 1, reload = 0xECC8 ? ~5ms overflow
+                      10                 ;----------------------------------------------------------
+                      11     
+0000                  12                 ORG     0000h
+0000 0140             13                 AJMP    MAIN            ; Reset vector ? MAIN
+                      14     
+000B                  15                 ORG     000Bh           ; Timer0 overflow vector
+000B 0154             16                 AJMP    TIMER0_ISR
+                      17     
+                      18     ;----------------------------------------------------------------------
+                      19     ;  Data tables in CODE space
+                      20     ;  “Digits” table: BCD for ‘1’, ‘2’, ‘3’, ‘4’
+                      21     ;  “Select” table: which digit to enable (bits for P1.5–P1.4)
+                      22     ;----------------------------------------------------------------------
+0030                  23                 ORG     0030h
+                      24     
+0030 01020304         25     BCD_TABLE:  DB      1, 2, 3, 4      ; BCD for “1,2,3,4”
+                      26     
+                      27     ; For digit select lines (P1.5–P1.4) we want:
+                      28     ;   digit0 ? 00b, digit1 ? 01b, digit2 ? 10b, digit3 ? 11b
+                      29     ; or in decimal: 0,1,2,3
+0034 00010203         30     SEL_TABLE:  DB      0, 1, 2, 3
+                      31     
+                      32     ;----------------------------------------------------------------------
+                      33     ;  Main Program
+                      34     ;----------------------------------------------------------------------
+0040                  35                 ORG     0040h
+0040                  36     MAIN:
+0040 758160           37                 MOV     SP, #60h       ; Set up stack pointer (optional)
+                      38     
+                      39                 ;--- Configure Timer0 in 16-bit mode (TMOD = 0000_0001) ---
+0043 758901           40                 MOV     TMOD, #01h
+                      41     
+                      42                 ;--- Load initial counts for 5ms at 12MHz: 0xECC8 ---
+0046 758CEC           43                 MOV     TH0, #0xEC
+0049 758AC8           44                 MOV     TL0, #0xC8
+                      45     
+                      46                 ;--- Enable interrupts ---
+004C D2AF             47                 SETB    EA            ; Global interrupt enable
+004E D2A9             48                 SETB    ET0           ; Timer0 interrupt enable
+                      49     
+                      50                 ;--- Start Timer0 ---
+0050 D28C             51                 SETB    TR0
+                      52     
+0052                  53     MAIN_LOOP:
+0052 80FE             54                 SJMP    MAIN_LOOP     ; Do nothing; the ISR does multiplexing
+                      55     
+                      56     ;----------------------------------------------------------------------
+                      57     ;  Timer0 Interrupt Service Routine
+                      58     ;  ~ every 5ms: reload Timer0, pick next digit, output BCD + select bits
+A51 MACRO ASSEMBLER  STARTUP                                                              02/06/2025 11:56:51 PAGE     2
+
+                      59     ;----------------------------------------------------------------------
+0054                  60     TIMER0_ISR:
+                      61                 ;--- Reload Timer0 for next 5ms ---
+0054 758CEC           62                 MOV     TH0, #0xEC
+0057 758AC8           63                 MOV     TL0, #0xC8
+005A C28D             64                 CLR     TF0                 ; Clear overflow flag
+                      65     
+                      66                 ;--- Get current digit index from “DigitIndex” in RAM ---
+005C E500             67                 MOV     A, DigitIndex       ; A = current digit 0..3
+*** ________________________________________________^
+*** ERROR #A48 IN 67 (STARTUP.A51, LINE 67): DATA-ADDRESS EXPECTED
+                      68     
+                      69                 ; (1) Get BCD code from BCD_TABLE
+005E 900030           70                 MOV     DPTR, #BCD_TABLE
+0061 93               71                 MOVC    A, @A+DPTR          ; A = BCD for 1..4
+0062 FF               72                 MOV     R7, A               ; Save BCD nibble in R7
+                      73     
+                      74                 ; (2) Get the digit-select code from SEL_TABLE
+0063 E500             75                 MOV     A, DigitIndex
+*** ________________________________________________^
+*** ERROR #A48 IN 75 (STARTUP.A51, LINE 75): DATA-ADDRESS EXPECTED
+0065 900034           76                 MOV     DPTR, #SEL_TABLE
+0068 93               77                 MOVC    A, @A+DPTR          ; A = 0..3 for bits P1.5..P1.4
+                      78     
+                      79                 ; Shift that value into the top nibble (bits 7..4)
+                      80                 ;  Because 0..3 in decimal is 00b..11b in binary, we can
+                      81                 ;  shift left by 4 bits to move to P1.5–P1.4:
+0069 F5F0             82                 MOV     B, A               ; B = select code 0..3
+006B E4               83                 CLR     A                  ; A=0
+006C A204             84                 MOV     C, 4               ; we want 4 shifts
+006E                  85     SHIFT_LOOP:
+006E                  86                 RL      B                  ; shift left into carry
+*** _____________________________________________^
+*** ERROR #A39 IN 86 (STARTUP.A51, LINE 86): REGISTER OPERAND EXPECTED
+006E 23               87                 RL      A                  ; shift A left, bringing in from carry
+006F                  88                 DJNZ    C, SHIFT_LOOP
+*** _____________________________________________^
+*** ERROR #A40 IN 88 (STARTUP.A51, LINE 88): INVALID REGISTER
+                      89     
+                      90                 ; Now A holds the top nibble for P1.5–P1.4
+                      91                 ; Merge with R7’s BCD nibble
+006F 4F               92                 ORL     A, R7              ; A7..A4 = digit select, A3..A0 = BCD
+                      93     
+                      94                 ;--- Send out to port ---
+0070 F590             95                 MOV     P1, A
+                      96     
+                      97                 ;--- Next digit index in RAM ---
+0072 E500             98                 MOV     A, DigitIndex
+*** ________________________________________________^
+*** ERROR #A48 IN 98 (STARTUP.A51, LINE 98): DATA-ADDRESS EXPECTED
+0074 04               99                 INC     A
+0075 5403            100                 ANL     A, #03h            ; keep it 0..3
+0077 F500            101                 MOV     DigitIndex, A
+*** _____________________________________________^
+*** ERROR #A48 IN 101 (STARTUP.A51, LINE 101): DATA-ADDRESS EXPECTED
+                     102     
+0079 32              103                 RETI
+                     104     
+                     105     ;----------------------------------------------------------------------
+                     106     ;  Simple RAM variable for the digit index
+                     107     ;----------------------------------------------------------------------
+007A                 108     DigitIndex: DS 1    ; 1 byte in internal RAM
+                     109     
+                     110                 END
+                                                                         NAME    MULTI_7SEG
+*** WARNING #A73 IN 111 (STARTUP.A51, LINE 111): TEXT FOUND BEYOND END STATEMENT - IGNORED
+A51 MACRO ASSEMBLER  STARTUP                                                              02/06/2025 11:56:51 PAGE     3
+
+                                         ;----------------------------------------------------------
+                                         ;  Display “1234” on 4-digit 7-seg using Timer0 ISR @ 5ms
+                                         ;  8051 @ 12MHz
+                                         ;
+                                         ;  P1.0–P1.3 = BCD lines to 7-seg decoder
+                                         ;  P1.4–P1.5 = which digit is active
+                                         ;
+                                         ;  Timer0 mode 1, reload = 0xECC8 ? ~5ms overflow
+                                         ;----------------------------------------------------------
+                             
+                                         ORG     0000h
+                                         AJMP    MAIN            ; Reset vector ? MAIN
+                             
+                                         ORG     000Bh           ; Timer0 overflow vector
+                                         AJMP    TIMER0_ISR
+                             
+                             ;----------------------------------------------------------------------
+                             ;  Data tables in CODE space
+                             ;  “Digits” table: BCD for ‘1’, ‘2’, ‘3’, ‘4’
+                             ;  “Select” table: which digit to enable (bits for P1.5–P1.4)
+                             ;----------------------------------------------------------------------
+                                         ORG     0030h
+                             
+                             BCD_TABLE:  DB      1, 2, 3, 4      ; BCD for “1,2,3,4”
+                             
+                             ; For digit select lines (P1.5–P1.4) we want:
+                             ;   digit0 ? 00b, digit1 ? 01b, digit2 ? 10b, digit3 ? 11b
+                             ; or in decimal: 0,1,2,3
+                             SEL_TABLE:  DB      0, 1, 2, 3
+                             
+                             ;----------------------------------------------------------------------
+                             ;  Main Program
+                             ;----------------------------------------------------------------------
+                                         ORG     0040h
+                             MAIN:
+                                         MOV     SP, #60h       ; Set up stack pointer (optional)
+                             
+                                         ;--- Configure Timer0 in 16-bit mode (TMOD = 0000_0001) ---
+                                         MOV     TMOD, #01h
+                             
+                                         ;--- Load initial counts for 5ms at 12MHz: 0xECC8 ---
+                                         MOV     TH0, #0xEC
+                                         MOV     TL0, #0xC8
+                             
+                                         ;--- Enable interrupts ---
+                                         SETB    EA            ; Global interrupt enable
+                                         SETB    ET0           ; Timer0 interrupt enable
+                             
+                                         ;--- Start Timer0 ---
+                                         SETB    TR0
+                             
+                             MAIN_LOOP:
+                                         SJMP    MAIN_LOOP     ; Do nothing; the ISR does multiplexing
+                             
+                             ;----------------------------------------------------------------------
+                             ;  Timer0 Interrupt Service Routine
+                             ;  ~ every 5ms: reload Timer0, pick next digit, output BCD + select bits
+                             ;----------------------------------------------------------------------
+                             TIMER0_ISR:
+                                         ;--- Reload Timer0 for next 5ms ---
+                                         MOV     TH0, #0xEC
+                                         MOV     TL0, #0xC8
+                                         CLR     TF0                 ; Clear overflow flag
+                             
+                                         ;--- Get current digit index from “DigitIndex” in RAM ---
+                                         MOV     A, DigitIndex       ; A = current digit 0..3
+A51 MACRO ASSEMBLER  STARTUP                                                              02/06/2025 11:56:51 PAGE     4
+
+                             
+                                         ; (1) Get BCD code from BCD_TABLE
+                                         MOV     DPTR, #BCD_TABLE
+                                         MOVC    A, @A+DPTR          ; A = BCD for 1..4
+                                         MOV     R7, A               ; Save BCD nibble in R7
+                             
+                                         ; (2) Get the digit-select code from SEL_TABLE
+                                         MOV     A, DigitIndex
+                                         MOV     DPTR, #SEL_TABLE
+                                         MOVC    A, @A+DPTR          ; A = 0..3 for bits P1.5..P1.4
+                             
+                                         ; Shift that value into the top nibble (bits 7..4)
+                                         ;  Because 0..3 in decimal is 00b..11b in binary, we can
+                                         ;  shift left by 4 bits to move to P1.5–P1.4:
+                                         MOV     B, A               ; B = select code 0..3
+                                         CLR     A                  ; A=0
+                                         MOV     C, 4               ; we want 4 shifts
+                             SHIFT_LOOP:
+                                         RL      B                  ; shift left into carry
+                                         RL      A                  ; shift A left, bringing in from carry
+                                         DJNZ    C, SHIFT_LOOP
+                             
+                                         ; Now A holds the top nibble for P1.5–P1.4
+                                         ; Merge with R7’s BCD nibble
+                                         ORL     A, R7              ; A7..A4 = digit select, A3..A0 = BCD
+                             
+                                         ;--- Send out to port ---
+                                         MOV     P1, A
+                             
+                                         ;--- Next digit index in RAM ---
+                                         MOV     A, DigitIndex
+                                         INC     A
+                                         ANL     A, #03h            ; keep it 0..3
+                                         MOV     DigitIndex, A
+                             
+                                         RETI
+                             
+                             ;----------------------------------------------------------------------
+                             ;  Simple RAM variable for the digit index
+                             ;----------------------------------------------------------------------
+                             DigitIndex: DS 1    ; 1 byte in internal RAM
+                             
+                                         END
+A51 MACRO ASSEMBLER  STARTUP                                                              02/06/2025 11:56:51 PAGE     5
+
+SYMBOL TABLE LISTING
+------ ----- -------
+
+
+N A M E             T Y P E  V A L U E   ATTRIBUTES
+
+B. . . . . . . . .  D ADDR   00F0H   A   
+BCD_TABLE. . . . .  C ADDR   0030H   A   
+DIGITINDEX . . . .  C ADDR   007AH   A   
+EA . . . . . . . .  B ADDR   00A8H.7 A   
+ET0. . . . . . . .  B ADDR   00A8H.1 A   
+MAIN . . . . . . .  C ADDR   0040H   A   
+MAIN_LOOP. . . . .  C ADDR   0052H   A   
+MULTI_7SEG . . . .  N NUMB   -----       
+P1 . . . . . . . .  D ADDR   0090H   A   
+SEL_TABLE. . . . .  C ADDR   0034H   A   
+SHIFT_LOOP . . . .  C ADDR   006EH   A   
+SP . . . . . . . .  D ADDR   0081H   A   
+TF0. . . . . . . .  B ADDR   0088H.5 A   
+TH0. . . . . . . .  D ADDR   008CH   A   
+TIMER0_ISR . . . .  C ADDR   0054H   A   
+TL0. . . . . . . .  D ADDR   008AH   A   
+TMOD . . . . . . .  D ADDR   0089H   A   
+TR0. . . . . . . .  B ADDR   0088H.4 A   
+
+
+REGISTER BANK(S) USED: 0 
+
+
+ASSEMBLY COMPLETE.  1 WARNING(S), 6 ERROR(S)
