@@ -33,12 +33,12 @@ SEL_TABLE:  DB      0, 1, 2, 3
 ;  Variable declaration in internal RAM 
 ;---------------------------------------------------------------------- 
             ORG     20H         ; choose an unused RAM segment
-C:          DB      1           ; allocate 1 byte for variable C
+C:          DS      1           ; allocate 1 byte for variable C
 ;----------------------------------------------------------------------
 ;  Simple RAM variable for the digit index
 ;----------------------------------------------------------------------
             ORG     30H         ; start of internal RAM
-DigitIndex: DB      1           ; allocate 1 byte in internal RAM
+DigitIndex: DS      1           ; allocate 1 byte in internal RAM
 
 ;----------------------------------------------------------------------
 ;  Main Program
