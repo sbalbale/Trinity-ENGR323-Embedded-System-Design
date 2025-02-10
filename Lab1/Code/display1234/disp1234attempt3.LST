@@ -1,0 +1,121 @@
+A51 MACRO ASSEMBLER  DISP1234ATTEMPT3                                                     02/10/2025 16:09:35 PAGE     1
+
+
+MACRO ASSEMBLER A51 V8.01
+OBJECT MODULE PLACED IN disp1234attempt3.OBJ
+ASSEMBLER INVOKED BY: C:\Keil\C51\BIN\A51.EXE disp1234attempt3.asm SET(SMALL) DEBUG EP
+
+LOC  OBJ            LINE     SOURCE
+
+0000                   1             ORG 0000h           ; Reset vector
+0000 2100              2             AJMP MainProg       ; Jump to main program
+                       3     
+000B                   4             ORG 000Bh           ; Timer0 (TF0) interrupt vector (must be ≤8 bytes)
+000B 2118              5             AJMP ISRTF0         ; Jump to Timer0 ISR
+                       6     
+0100                   7             ORG 0100h           ; Start of main program
+0100                   8     MainProg:
+0100 758135            9             MOV SP, #35h        ; Set stack pointer
+0103 758911           10             MOV TMOD, #11h      ; Configure Timer0 and Timer1 in mode 1 (16-bit mode)
+                      11             ; Set Timer0 initial value (not critical, since we reload in ISR)
+0106 758CEC           12             MOV TH0, #0ECh      
+0109 758A78           13             MOV TL0, #078h      
+010C D28C             14             SETB TR0            ; Start Timer0
+010E D2AF             15             SETB EA             ; Enable global interrupts
+0110 D2A9             16             SETB ET0            ; Enable Timer0 interrupt
+                      17     
+                      18             ; Initialize digit index variable in internal RAM (using address 30h)
+0112 753000           19             MOV 30h, #00h       ; 0 => first digit, 1 => second, etc.
+                      20     
+0115                  21     WaitLoop:
+0115 00               22             NOP
+0116 80FD             23             SJMP WaitLoop       ; Main loop does nothing—display refresh is handled in ISR
+                      24     
+                      25     ;-----------------------------------------------------
+                      26     ; Timer0 ISR: Refresh one 7-seg digit per interrupt every 5ms
+                      27     ;-----------------------------------------------------
+0118                  28     ISRTF0:
+0118 C0E0             29             PUSH ACC            ; Save registers used in ISR
+011A C0D0             30             PUSH PSW
+                      31     
+                      32             ; Reload Timer0 for a 5ms interval.
+                      33             ; With a 12MHz clock (1µs per machine cycle), 5000 counts are needed.
+                      34             ; Reload value = 65536 - 5000 = 60536 = 0xEC78.
+011C 758CEC           35             MOV TH0, #0ECh      ; High byte = 0xEC (236 decimal)
+011F 758A78           36             MOV TL0, #078h      ; Low byte  = 0x78 (120 decimal)
+                      37     
+                      38             ; Get current digit index from RAM (at address 30h)
+0122 E530             39             MOV A, 30h
+                      40     
+                      41             ; Select the digit to display based on the digit index:
+0124 B40006           42             CJNE A, #00h, Check1
+                      43             ; For index 0: display "1" with demux enable 0x10
+0127 7401             44             MOV A, #01h
+0129 4410             45             ORL A, #10h
+012B 8016             46             SJMP UpdateDigit
+012D                  47     Check1:
+012D B40106           48             CJNE A, #01h, Check2
+                      49             ; For index 1: display "2" with demux enable 0x20
+0130 7402             50             MOV A, #02h
+0132 4420             51             ORL A, #20h
+0134 800D             52             SJMP UpdateDigit
+0136                  53     Check2:
+0136 B40206           54             CJNE A, #02h, Check3
+                      55             ; For index 2: display "3" with demux enable 0x40
+0139 7403             56             MOV A, #03h
+013B 4440             57             ORL A, #40h
+013D 8004             58             SJMP UpdateDigit
+A51 MACRO ASSEMBLER  DISP1234ATTEMPT3                                                     02/10/2025 16:09:35 PAGE     2
+
+013F                  59     Check3:
+                      60             ; For index 3: display "4" with demux enable 0x80
+013F 7404             61             MOV A, #04h
+0141 4480             62             ORL A, #80h
+0143                  63     UpdateDigit:
+0143 F590             64             MOV P1, A         ; Output the BCD+demux pattern to Port1
+                      65     
+                      66             ; Increment digit index and wrap back to 0 after 3
+0145 E530             67             MOV A, 30h
+0147 04               68             INC A
+0148 B40402           69             CJNE A, #04h, NoWrap
+014B 7400             70             MOV A, #00h       ; Reset index after 4 digits
+014D                  71     NoWrap:
+014D F530             72             MOV 30h, A
+                      73     
+014F D0D0             74             POP PSW           ; Restore registers
+0151 D0E0             75             POP ACC
+0153 32               76             RETI              ; Return from interrupt
+                      77     
+                      78             END
+A51 MACRO ASSEMBLER  DISP1234ATTEMPT3                                                     02/10/2025 16:09:35 PAGE     3
+
+SYMBOL TABLE LISTING
+------ ----- -------
+
+
+N A M E             T Y P E  V A L U E   ATTRIBUTES
+
+ACC. . . . . . . .  D ADDR   00E0H   A   
+CHECK1 . . . . . .  C ADDR   012DH   A   
+CHECK2 . . . . . .  C ADDR   0136H   A   
+CHECK3 . . . . . .  C ADDR   013FH   A   
+EA . . . . . . . .  B ADDR   00A8H.7 A   
+ET0. . . . . . . .  B ADDR   00A8H.1 A   
+ISRTF0 . . . . . .  C ADDR   0118H   A   
+MAINPROG . . . . .  C ADDR   0100H   A   
+NOWRAP . . . . . .  C ADDR   014DH   A   
+P1 . . . . . . . .  D ADDR   0090H   A   
+PSW. . . . . . . .  D ADDR   00D0H   A   
+SP . . . . . . . .  D ADDR   0081H   A   
+TH0. . . . . . . .  D ADDR   008CH   A   
+TL0. . . . . . . .  D ADDR   008AH   A   
+TMOD . . . . . . .  D ADDR   0089H   A   
+TR0. . . . . . . .  B ADDR   0088H.4 A   
+UPDATEDIGIT. . . .  C ADDR   0143H   A   
+WAITLOOP . . . . .  C ADDR   0115H   A   
+
+
+REGISTER BANK(S) USED: 0 
+
+
+ASSEMBLY COMPLETE.  0 WARNING(S), 0 ERROR(S)

@@ -1,0 +1,43 @@
+BL51 BANKED LINKER/LOCATER V6.22                                                        02/10/2025  15:16:15  PAGE 1
+
+
+BL51 BANKED LINKER/LOCATER V6.22, INVOKED BY:
+C:\KEIL\C51\BIN\BL51.EXE disp3.obj TO Display3
+
+
+INPUT MODULES INCLUDED:
+  disp3.obj (DISP3)
+
+
+LINK MAP OF MODULE:  Display3 (DISP3)
+
+
+            TYPE    BASE      LENGTH    RELOCATION   SEGMENT NAME
+            -----------------------------------------------------
+
+            * * * * * * *   D A T A   M E M O R Y   * * * * * * *
+            REG     0000H     0008H     ABSOLUTE     "REG BANK 0"
+
+            * * * * * * *   C O D E   M E M O R Y   * * * * * * *
+            CODE    0000H     0033H     ABSOLUTE     
+
+
+
+SYMBOL TABLE OF MODULE:  Display3 (DISP3)
+
+  VALUE           TYPE          NAME
+  ----------------------------------
+
+  -------         MODULE        DISP3
+  C:0030H         SYMBOL        MAINP
+  D:0090H         SYMBOL        P1
+  C:0000H         LINE#         2
+  C:0030H         LINE#         6
+  -------         ENDMOD        DISP3
+
+******************************************************************************
+* RESTRICTED VERSION WITH 0800H BYTE CODE SIZE LIMIT; USED: 0005H BYTE ( 0%) *
+******************************************************************************
+
+Program Size: data=8.0 xdata=0 code=51
+LINK/LOCATE RUN COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -3,4 +3,5 @@
 
 
 		ORG 0030h
-MAINP:	MOV P1, #0h
+MAINP:	MOV P1, #03
+		END

@@ -1,0 +1,32 @@
+A51 MACRO ASSEMBLER  DISP3                                                                02/10/2025 15:16:15 PAGE     1
+
+
+MACRO ASSEMBLER A51 V8.01
+OBJECT MODULE PLACED IN disp3.OBJ
+ASSEMBLER INVOKED BY: C:\Keil\C51\BIN\A51.EXE disp3.asm SET(SMALL) DEBUG EP
+
+LOC  OBJ            LINE     SOURCE
+
+0000                   1                     ORG 0000h
+0000 0130              2                     AJMP MAINP
+                       3     
+                       4     
+0030                   5                     ORG 0030h
+0030 759003            6     MAINP:  MOV P1, #03
+                       7                     END
+A51 MACRO ASSEMBLER  DISP3                                                                02/10/2025 15:16:15 PAGE     2
+
+SYMBOL TABLE LISTING
+------ ----- -------
+
+
+N A M E             T Y P E  V A L U E   ATTRIBUTES
+
+MAINP. . . . . . .  C ADDR   0030H   A   
+P1 . . . . . . . .  D ADDR   0090H   A   
+
+
+REGISTER BANK(S) USED: 0 
+
+
+ASSEMBLY COMPLETE.  0 WARNING(S), 0 ERROR(S)
