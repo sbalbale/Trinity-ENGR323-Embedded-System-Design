@@ -1,0 +1,142 @@
+A51 MACRO ASSEMBLER  STOPWATCH                                                            02/10/2025 20:27:01 PAGE     1
+
+
+MACRO ASSEMBLER A51 V8.01
+OBJECT MODULE PLACED IN stopwatch.OBJ
+ASSEMBLER INVOKED BY: C:\Keil\C51\BIN\A51.EXE stopwatch.asm SET(SMALL) DEBUG EP
+
+LOC  OBJ            LINE     SOURCE
+
+0000                   1     ORG 0000h        ; Reset vector
+0000 2100              2     AJMP MainProg   ; Jump to main program
+                       3     
+000B                   4     ORG 000Bh        ; Timer0 (TF0) interrupt vector (must be ≤8 bytes)
+000B 2121              5     AJMP ISRTF0     ; Jump to Timer0 ISR
+                       6     
+0100                   7     ORG 0100h        ; Start of main program
+0100                   8     MainProg:
+0100 758135            9         MOV SP, #35h    ; Set stack pointer
+0103 758911           10         MOV TMOD, #11h  ; Configure Timer0 and Timer1 in mode 1 (16-bit mode)
+                      11                           ; Set Timer0 initial value (not critical, since we reload in ISR)
+0106 758CEC           12         MOV TH0, #0ECh    
+0109 758A78           13         MOV TL0, #078h    
+010C D28C             14         SETB TR0        ; Start Timer0
+010E D2AF             15         SETB EA         ; Enable global interrupts
+0110 D2A9             16         SETB ET0        ; Enable Timer0 interrupt
+                      17     
+                      18       ; Initialize counter variables in internal RAM
+0112 753000           19         MOV 30h, #00h   ; Seconds units digit
+0115 753100           20         MOV 31h, #00h   ; Seconds tens digit
+0118 753200           21         MOV 32h, #00h   ; Minutes units digit
+011B 753300           22         MOV 33h, #00h   ; Minutes tens digit
+                      23     
+011E                  24     WaitLoop:
+011E 00               25         NOP
+011F 80FD             26         SJMP WaitLoop    ; Main loop does nothing—display refresh is handled in ISR;---------
+                             --------------------------------------------; Timer0 ISR: Refresh one 7-seg digit per inter
+                             rupt every 5ms;-----------------------------------------------------
+0121                  27     ISRTF0:
+0121 C0E0             28         PUSH ACC         ; Save registers used in ISR
+0123 C0D0             29         PUSH PSW
+                      30     
+                      31       ; Reload Timer0 for a 5ms interval.
+                      32       ; With a 12MHz clock (1µs per machine cycle), 5000 counts are needed.
+                      33       ; Reload value = 65536 - 5000 = 60536 = 0xEC78.
+0125 758CEC           34         MOV TH0, #0ECh  ; High byte = 0xEC (236 decimal)
+0128 758A78           35         MOV TL0, #078h  ; Low byte  = 0x78 (120 decimal)
+                      36     
+                      37       ; Get current digit index from RAM (at address 30h)
+012B E530             38         MOV A, 30h
+                      39     
+                      40       ; Select the digit to display based on the digit index:
+012D B40006           41         CJNE A, #00h, Check1
+                      42       ; For index 0: display seconds units digit with demux enable 0x00
+0130 E530             43         MOV A, 30h      ; Load seconds units digit
+0132 540F             44         ANL A, #0Fh      ; Clear the upper nibble to keep the value between 0x00 and 0x09
+0134 801C             45         SJMP UpdateDigit
+0136                  46     Check1:
+0136 B40108           47         CJNE A, #01h, Check2
+                      48       ; For index 1: display seconds tens digit with demux enable 0x10
+0139 E531             49         MOV A, 31h      ; Load seconds tens digit
+013B 540F             50         ANL A, #0Fh      ; Clear the upper nibble to keep the value between 0x00 and 0x05
+013D 4410             51         ORL A, #10h     ; Set the demux enable bit
+013F 8011             52         SJMP UpdateDigit
+0141                  53     Check2:
+0141 B40208           54         CJNE A, #02h, Check3
+                      55       ; For index 2: display minutes units digit with demux enable 0x20
+0144 E532             56         MOV A, 32h      ; Load minutes units digit
+A51 MACRO ASSEMBLER  STOPWATCH                                                            02/10/2025 20:27:01 PAGE     2
+
+0146 540F             57         ANL A, #0Fh      ; Clear the upper nibble to keep the value between 0x00 and 0x09
+0148 4420             58         ORL A, #20h     ; Set the demux enable bit
+014A 8006             59         SJMP UpdateDigit
+014C                  60     Check3:
+                      61       ; For index 3: display minutes tens digit with demux enable 0x40
+014C E533             62         MOV A, 33h      ; Load minutes tens digit
+014E 540F             63         ANL A, #0Fh      ; Clear the upper nibble to keep the value between 0x00 and 0x04
+0150 4440             64         ORL A, #40h     ; Set the demux enable bit
+                      65     
+0152                  66     UpdateDigit:
+0152 F590             67         MOV P1, A       ; Output the BCD+demux pattern to Port1
+                      68     
+                      69       ; Increment digit index and wrap back to 0 after 3
+0154 E530             70         MOV A, 30h
+0156 04               71         INC A
+0157 B40402           72         CJNE A, #04h, NoWrap
+015A 7400             73         MOV A, #00h     ; Reset index after 4 digits
+015C                  74     NoWrap:
+015C F530             75         MOV 30h, A                ; Store the updated digit index
+                      76     
+                      77       ; Increment counters (this should be done outside the digit index wrapping logic)
+015E E530             78         MOV A, 30h     ; Load seconds units digit into accumulator
+0160 B40919           79         CJNE A, #09h, NoSecWrap; Check if seconds units needs wrapping
+0163 753000           80         MOV 30h, #00h             ; Wrap seconds units
+0166 0531             81         INC 31h                   ; Increment seconds tens
+0168 E531             82         MOV A, 31h     ; Load seconds tens digit into accumulator
+016A B4050F           83         CJNE A, #05h, NoSecWrap; Check if seconds tens needs wrapping
+016D 753100           84         MOV 31h, #00h             ; Wrap seconds tens
+0170 0532             85         INC 32h                   ; Increment minutes units
+0172 E532             86         MOV A, 32h     ; Load minutes units digit into accumulator
+0174 B40905           87         CJNE A, #09h, NoSecWrap; Check if minutes units needs wrapping
+0177 753200           88         MOV 32h, #00h             ; Wrap minutes units
+017A 0533             89         INC 33h                   ; Increment minutes tens
+017C                  90     NoSecWrap:
+                      91     
+017C D0D0             92         POP PSW         ; Restore registers
+017E D0E0             93         POP ACC
+0180 32               94         RETI             ; Return from interrupt
+                      95     
+                      96     END
+A51 MACRO ASSEMBLER  STOPWATCH                                                            02/10/2025 20:27:01 PAGE     3
+
+SYMBOL TABLE LISTING
+------ ----- -------
+
+
+N A M E             T Y P E  V A L U E   ATTRIBUTES
+
+ACC. . . . . . . .  D ADDR   00E0H   A   
+CHECK1 . . . . . .  C ADDR   0136H   A   
+CHECK2 . . . . . .  C ADDR   0141H   A   
+CHECK3 . . . . . .  C ADDR   014CH   A   
+EA . . . . . . . .  B ADDR   00A8H.7 A   
+ET0. . . . . . . .  B ADDR   00A8H.1 A   
+ISRTF0 . . . . . .  C ADDR   0121H   A   
+MAINPROG . . . . .  C ADDR   0100H   A   
+NOSECWRAP. . . . .  C ADDR   017CH   A   
+NOWRAP . . . . . .  C ADDR   015CH   A   
+P1 . . . . . . . .  D ADDR   0090H   A   
+PSW. . . . . . . .  D ADDR   00D0H   A   
+SP . . . . . . . .  D ADDR   0081H   A   
+TH0. . . . . . . .  D ADDR   008CH   A   
+TL0. . . . . . . .  D ADDR   008AH   A   
+TMOD . . . . . . .  D ADDR   0089H   A   
+TR0. . . . . . . .  B ADDR   0088H.4 A   
+UPDATEDIGIT. . . .  C ADDR   0152H   A   
+WAITLOOP . . . . .  C ADDR   011EH   A   
+
+
+REGISTER BANK(S) USED: 0 
+
+
+ASSEMBLY COMPLETE.  0 WARNING(S), 0 ERROR(S)
