@@ -1,0 +1,105 @@
+A51 MACRO ASSEMBLER  DISP1234                                                             02/12/2025 16:07:53 PAGE     1
+
+
+MACRO ASSEMBLER A51 V8.01
+OBJECT MODULE PLACED IN disp1234.OBJ
+ASSEMBLER INVOKED BY: C:\Keil\C51\BIN\A51.EXE disp1234.asm SET(SMALL) DEBUG EP
+
+LOC  OBJ            LINE     SOURCE
+
+0000                   1                 ORG     0000h           
+0000 0130              2                 AJMP    MAIN           
+                       3     
+000B                   4                 ORG     000Bh          ; Timer 0 interrupt vector
+000B 0153              5                 AJMP    Timer0_ISR
+                       6     
+0030                   7                 ORG     0030h          
+0030 758130            8     MAIN:       MOV     SP, #30h       ; Initialize stack pointer
+0033 758901            9                 MOV     TMOD, #01h     ; Timer 0, mode 1 (16-bit)
+                      10     
+                      11                 ; Timer 0 setup for 5ms (12MHz clock)
+                      12                 ; 5ms = 5000us = 5000 machine cycles
+                      13                 ; 65536 - 5000 = 60536 (EC78h)
+0036 758CEC           14                 MOV     TH0, #0ECh     
+0039 758A78           15                 MOV     TL0, #078h     
+                      16     
+                      17                 ; Store display digits in RAM
+003C 752001           18                 MOV     20h, #01h      ; Position 0 - digit 1
+003F 752112           19                 MOV     21h, #12h      ; Position 1 - digit 2
+0042 752223           20                 MOV     22h, #23h      ; Position 2 - digit 3
+0045 752334           21                 MOV     23h, #34h      ; Position 3 - digit 4
+0048 752400           22                 MOV     24h, #00h      ; Current display position
+                      23     
+                      24                 ; Enable interrupts
+004B D2A9             25                 SETB    ET0            ; Enable Timer 0 interrupt
+004D D2AF             26                 SETB    EA             ; Enable global interrupts
+004F D28C             27                 SETB    TR0            ; Start Timer 0
+                      28     
+0051 80FE             29     MainLoop:   SJMP    MainLoop       ; Main program loop
+                      30     
+0053 C0E0             31     Timer0_ISR: PUSH    ACC            
+0055 C0D0             32                 PUSH    PSW
+                      33     
+                      34                 ; Reload timer for next 5ms
+0057 C28C             35                 CLR     TR0            
+0059 758CEC           36                 MOV     TH0, #0ECh     
+005C 758A78           37                 MOV     TL0, #078h     
+005F C28D             38                 CLR     TF0            
+0061 D28C             39                 SETB    TR0            
+                      40     
+                      41                 ; Get current position and display digit
+0063 E524             42                 MOV     A, 24h         ; Get current position
+0065 90007A           43                 MOV     DPTR, #DispTab ; Point to display table
+0068 93               44                 MOVC    A, @A+DPTR     ; Get display pattern
+0069 F590             45                 MOV     P1, A          ; Output to display
+                      46     
+                      47                 ; Update position counter
+006B E524             48                 MOV     A, 24h
+006D 04               49                 INC     A              ; Increment position
+006E B40402           50                 CJNE    A, #04h, Save_Pos
+0071 7400             51                 MOV     A, #00h        ; Reset to 0 if reached 4
+0073 F524             52     Save_Pos:   MOV     24h, A         
+                      53     
+0075 D0D0             54                 POP     PSW            
+0077 D0E0             55                 POP     ACC
+0079 32               56                 RETI
+                      57     
+                      58     ; Display patterns table
+A51 MACRO ASSEMBLER  DISP1234                                                             02/12/2025 16:07:53 PAGE     2
+
+007A 01               59     DispTab:    DB      01h           ; Digit 1, position 0
+007B 12               60                 DB      12h           ; Digit 2, position 1
+007C 23               61                 DB      23h           ; Digit 3, position 2
+007D 34               62                 DB      34h           ; Digit 4, position 3
+                      63     
+                      64                 END
+A51 MACRO ASSEMBLER  DISP1234                                                             02/12/2025 16:07:53 PAGE     3
+
+SYMBOL TABLE LISTING
+------ ----- -------
+
+
+N A M E             T Y P E  V A L U E   ATTRIBUTES
+
+ACC. . . . . . . .  D ADDR   00E0H   A   
+DISPTAB. . . . . .  C ADDR   007AH   A   
+EA . . . . . . . .  B ADDR   00A8H.7 A   
+ET0. . . . . . . .  B ADDR   00A8H.1 A   
+MAIN . . . . . . .  C ADDR   0030H   A   
+MAINLOOP . . . . .  C ADDR   0051H   A   
+P1 . . . . . . . .  D ADDR   0090H   A   
+PSW. . . . . . . .  D ADDR   00D0H   A   
+SAVE_POS . . . . .  C ADDR   0073H   A   
+SP . . . . . . . .  D ADDR   0081H   A   
+TF0. . . . . . . .  B ADDR   0088H.5 A   
+TH0. . . . . . . .  D ADDR   008CH   A   
+TIMER0_ISR . . . .  C ADDR   0053H   A   
+TL0. . . . . . . .  D ADDR   008AH   A   
+TMOD . . . . . . .  D ADDR   0089H   A   
+TR0. . . . . . . .  B ADDR   0088H.4 A   
+
+
+REGISTER BANK(S) USED: 0 
+
+
+ASSEMBLY COMPLETE.  0 WARNING(S), 0 ERROR(S)

@@ -134,7 +134,7 @@
         <SetRegEntry>
           <Number>0</Number>
           <Key>DLGDP51</Key>
-          <Name>(98=-1,-1,-1,-1,0)(82=-1,-1,-1,-1,0)(83=968,326,1166,431,1)(84=-1,-1,-1,-1,0)(85=-1,-1,-1,-1,0)(80=-1,-1,-1,-1,0)(91=-1,-1,-1,-1,0)(92=-1,-1,-1,-1,0)</Name>
+          <Name>(98=0,417,333,701,0)(82=0,304,198,409,0)(83=709,374,907,479,0)(84=0,336,198,441,0)(85=-1,-1,-1,-1,0)(80=-1,-1,-1,-1,0)(91=0,222,200,487,0)(92=-1,-1,-1,-1,0)</Name>
         </SetRegEntry>
       </TargetDriverDllRegistry>
       <DebugFlag>
@@ -179,13 +179,13 @@
       <FileType>2</FileType>
       <tvExp>0</tvExp>
       <Focus>0</Focus>
-      <ColumnNumber>0</ColumnNumber>
+      <ColumnNumber>23</ColumnNumber>
       <tvExpOptDlg>0</tvExpOptDlg>
-      <TopLine>1</TopLine>
-      <CurrentLine>6</CurrentLine>
+      <TopLine>14</TopLine>
+      <CurrentLine>38</CurrentLine>
       <bDave2>0</bDave2>
-      <PathWithFileName>.\disp3.asm</PathWithFileName>
-      <FilenameWithoutPath>disp3.asm</FilenameWithoutPath>
+      <PathWithFileName>.\stopwatch.asm</PathWithFileName>
+      <FilenameWithoutPath>stopwatch.asm</FilenameWithoutPath>
     </File>
   </Group>
 
@@ -1533,10 +1533,10 @@
       <ActiveTab>0</ActiveTab>
       <Documents>
         <Doc>
-          <Name>.\disp3.asm</Name>
-          <ColumnNumber>0</ColumnNumber>
-          <TopLine>1</TopLine>
-          <CurrentLine>6</CurrentLine>
+          <Name>.\stopwatch.asm</Name>
+          <ColumnNumber>23</ColumnNumber>
+          <TopLine>14</TopLine>
+          <CurrentLine>38</CurrentLine>
         </Doc>
       </Documents>
     </MDIGroup>

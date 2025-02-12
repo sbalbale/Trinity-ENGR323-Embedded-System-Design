@@ -1,4 +1,4 @@
-A51 MACRO ASSEMBLER  DISP3                                                                02/10/2025 15:16:15 PAGE     1
+A51 MACRO ASSEMBLER  DISP3                                                                02/12/2025 15:55:34 PAGE     1
 
 
 MACRO ASSEMBLER A51 V8.01
@@ -12,9 +12,9 @@ LOC  OBJ            LINE     SOURCE
                        3     
                        4     
 0030                   5                     ORG 0030h
-0030 759003            6     MAINP:  MOV P1, #03
+0030 759029            6     MAINP:  MOV P1, #29h
                        7                     END
-A51 MACRO ASSEMBLER  DISP3                                                                02/10/2025 15:16:15 PAGE     2
+A51 MACRO ASSEMBLER  DISP3                                                                02/12/2025 15:55:34 PAGE     2
 
 SYMBOL TABLE LISTING
 ------ ----- -------

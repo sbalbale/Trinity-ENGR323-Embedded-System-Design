@@ -43,7 +43,7 @@
             <InvalidFlash>1</InvalidFlash>
           </TargetStatus>
           <OutputDirectory>.\</OutputDirectory>
-          <OutputName>display1234</OutputName>
+          <OutputName>stopwatch</OutputName>
           <CreateExecutable>1</CreateExecutable>
           <CreateLib>0</CreateLib>
           <CreateHexFile>1</CreateHexFile>
@@ -347,9 +347,9 @@
           <GroupName>Source Group 1</GroupName>
           <Files>
             <File>
-              <FileName>disp1234.asm</FileName>
+              <FileName>stopwatch.asm</FileName>
               <FileType>2</FileType>
-              <FilePath>.\disp1234.asm</FilePath>
+              <FilePath>.\stopwatch.asm</FilePath>
             </File>
           </Files>
         </Group>

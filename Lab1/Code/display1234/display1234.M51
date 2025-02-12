@@ -1,15 +1,15 @@
-BL51 BANKED LINKER/LOCATER V6.22                                                        02/10/2025  16:10:27  PAGE 1
+BL51 BANKED LINKER/LOCATER V6.22                                                        02/12/2025  16:07:53  PAGE 1
 
 
 BL51 BANKED LINKER/LOCATER V6.22, INVOKED BY:
-C:\KEIL\C51\BIN\BL51.EXE disp1234attempt3.obj TO display1234
+C:\KEIL\C51\BIN\BL51.EXE disp1234.obj TO display1234
 
 
 INPUT MODULES INCLUDED:
-  disp1234attempt3.obj (DISP1234ATTEMPT3)
+  disp1234.obj (DISP1234)
 
 
-LINK MAP OF MODULE:  display1234 (DISP1234ATTEMPT3)
+LINK MAP OF MODULE:  display1234 (DISP1234)
 
 
             TYPE    BASE      LENGTH    RELOCATION   SEGMENT NAME
@@ -19,82 +19,74 @@ LINK MAP OF MODULE:  display1234 (DISP1234ATTEMPT3)
             REG     0000H     0008H     ABSOLUTE     "REG BANK 0"
 
             * * * * * * *   C O D E   M E M O R Y   * * * * * * *
-            CODE    0000H     0154H     ABSOLUTE     
+            CODE    0000H     007EH     ABSOLUTE     
 
 
 
-SYMBOL TABLE OF MODULE:  display1234 (DISP1234ATTEMPT3)
+SYMBOL TABLE OF MODULE:  display1234 (DISP1234)
 
   VALUE           TYPE          NAME
   ----------------------------------
 
-  -------         MODULE        DISP1234ATTEMPT3
+  -------         MODULE        DISP1234
   D:00E0H         SYMBOL        ACC
-  C:012DH         SYMBOL        CHECK1
-  C:0136H         SYMBOL        CHECK2
-  C:013FH         SYMBOL        CHECK3
+  C:007AH         SYMBOL        DISPTAB
   B:00A8H.7       SYMBOL        EA
   B:00A8H.1       SYMBOL        ET0
-  C:0118H         SYMBOL        ISRTF0
-  C:0100H         SYMBOL        MAINPROG
-  C:014DH         SYMBOL        NOWRAP
+  C:0030H         SYMBOL        MAIN
+  C:0051H         SYMBOL        MAINLOOP
   D:0090H         SYMBOL        P1
   D:00D0H         SYMBOL        PSW
+  C:0073H         SYMBOL        SAVE_POS
   D:0081H         SYMBOL        SP
+  B:0088H.5       SYMBOL        TF0
   D:008CH         SYMBOL        TH0
+  C:0053H         SYMBOL        TIMER0_ISR
   D:008AH         SYMBOL        TL0
   D:0089H         SYMBOL        TMOD
   B:0088H.4       SYMBOL        TR0
-  C:0143H         SYMBOL        UPDATEDIGIT
-  C:0115H         SYMBOL        WAITLOOP
   C:0000H         LINE#         2
   C:000BH         LINE#         5
-  C:0100H         LINE#         9
-  C:0103H         LINE#         10
-  C:0106H         LINE#         12
-  C:0109H         LINE#         13
-  C:010CH         LINE#         14
-  C:010EH         LINE#         15
-  C:0110H         LINE#         16
-  C:0112H         LINE#         19
-  C:0115H         LINE#         22
-  C:0116H         LINE#         23
-BL51 BANKED LINKER/LOCATER V6.22                                                      02/10/2025  16:10:27  PAGE 2
+  C:0030H         LINE#         8
+  C:0033H         LINE#         9
+  C:0036H         LINE#         14
+  C:0039H         LINE#         15
+  C:003CH         LINE#         18
+  C:003FH         LINE#         19
+  C:0042H         LINE#         20
+  C:0045H         LINE#         21
+  C:0048H         LINE#         22
+  C:004BH         LINE#         25
+  C:004DH         LINE#         26
+  C:004FH         LINE#         27
+BL51 BANKED LINKER/LOCATER V6.22                                                      02/12/2025  16:07:53  PAGE 2
 
 
-  C:0118H         LINE#         29
-  C:011AH         LINE#         30
-  C:011CH         LINE#         35
-  C:011FH         LINE#         36
-  C:0122H         LINE#         39
-  C:0124H         LINE#         42
-  C:0127H         LINE#         44
-  C:0129H         LINE#         45
-  C:012BH         LINE#         46
-  C:012DH         LINE#         48
-  C:0130H         LINE#         50
-  C:0132H         LINE#         51
-  C:0134H         LINE#         52
-  C:0136H         LINE#         54
-  C:0139H         LINE#         56
-  C:013BH         LINE#         57
-  C:013DH         LINE#         58
-  C:013FH         LINE#         61
-  C:0141H         LINE#         62
-  C:0143H         LINE#         64
-  C:0145H         LINE#         67
-  C:0147H         LINE#         68
-  C:0148H         LINE#         69
-  C:014BH         LINE#         70
-  C:014DH         LINE#         72
-  C:014FH         LINE#         74
-  C:0151H         LINE#         75
-  C:0153H         LINE#         76
-  -------         ENDMOD        DISP1234ATTEMPT3
+  C:0051H         LINE#         29
+  C:0053H         LINE#         31
+  C:0055H         LINE#         32
+  C:0057H         LINE#         35
+  C:0059H         LINE#         36
+  C:005CH         LINE#         37
+  C:005FH         LINE#         38
+  C:0061H         LINE#         39
+  C:0063H         LINE#         42
+  C:0065H         LINE#         43
+  C:0068H         LINE#         44
+  C:0069H         LINE#         45
+  C:006BH         LINE#         48
+  C:006DH         LINE#         49
+  C:006EH         LINE#         50
+  C:0071H         LINE#         51
+  C:0073H         LINE#         52
+  C:0075H         LINE#         54
+  C:0077H         LINE#         55
+  C:0079H         LINE#         56
+  -------         ENDMOD        DISP1234
 
 ******************************************************************************
-* RESTRICTED VERSION WITH 0800H BYTE CODE SIZE LIMIT; USED: 0058H BYTE ( 4%) *
+* RESTRICTED VERSION WITH 0800H BYTE CODE SIZE LIMIT; USED: 0052H BYTE ( 4%) *
 ******************************************************************************
 
-Program Size: data=8.0 xdata=0 code=340
+Program Size: data=8.0 xdata=0 code=126
 LINK/LOCATE RUN COMPLETE.  0 WARNING(S),  0 ERROR(S)

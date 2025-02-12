@@ -3,5 +3,5 @@
 
 
 		ORG 0030h
-MAINP:	MOV P1, #03
+MAINP:	MOV P1, #29h
 		END
