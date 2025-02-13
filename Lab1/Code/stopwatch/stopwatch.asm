@@ -10,7 +10,7 @@ MAIN:       MOV     SP, #30h
 
             ; Timer 0 setup for 5ms
             MOV     TH0, #0ECh     
-            MOV     TL0, #077h     
+            MOV     TL0, #0BDh     
 
             ; Initialize registers for time values
             MOV     R0, #00h      ; 1 second digit
@@ -28,13 +28,14 @@ MAIN:       MOV     SP, #30h
 MainLoop:   SJMP    MainLoop       
 
 ;this loop takes aproximatly 70 machine cycles. Timer value might need to be adjusted to  0xECh, 0xBDh.
+; default value is 0xECh, 0x77h
 Timer0_ISR: PUSH    ACC            
             PUSH    PSW
 
             ; Reload timer
             CLR     TR0            
             MOV     TH0, #0ECh     
-            MOV     TL0, #077h     
+            MOV     TL0, #0BDh     
             CLR     TF0            
             SETB    TR0            
 

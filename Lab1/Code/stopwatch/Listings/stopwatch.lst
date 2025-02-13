@@ -1,4 +1,4 @@
-A51 MACRO ASSEMBLER  STOPWATCH                                                            02/13/2025 11:35:35 PAGE     1
+A51 MACRO ASSEMBLER  STOPWATCH                                                            02/13/2025 17:18:13 PAGE     1
 
 
 MACRO ASSEMBLER A51 V8.2.7.0
@@ -20,7 +20,7 @@ LOC  OBJ            LINE     SOURCE
                       10     
                       11                 ; Timer 0 setup for 5ms
 0036 758CEC           12                 MOV     TH0, #0ECh     
-0039 758A77           13                 MOV     TL0, #077h     
+0039 758ABD           13                 MOV     TL0, #0BDh     
                       14     
                       15                 ; Initialize registers for time values
 003C 7800             16                 MOV     R0, #00h      ; 1 second digit
@@ -37,83 +37,86 @@ LOC  OBJ            LINE     SOURCE
                       27     
 004E 80FE             28     MainLoop:   SJMP    MainLoop       
                       29     
-0050 C0E0             30     Timer0_ISR: PUSH    ACC            
-0052 C0D0             31                 PUSH    PSW
-                      32     
-                      33                 ; Reload timer
-0054 C28C             34                 CLR     TR0            
-0056 758CEC           35                 MOV     TH0, #0ECh     
-0059 758A77           36                 MOV     TL0, #077h     
-005C C28D             37                 CLR     TF0            
-005E D28C             38                 SETB    TR0            
-                      39     
-                      40                 ; Update time counter
-0060 0D               41                 INC     R5             ; Increment ms counter
-0061 ED               42                 MOV     A, R5
-0062 B4C81E           43                 CJNE    A, #0C8h, Display    ; 200 * 5ms = 1 second
-0065 7D00             44                 MOV     R5, #00h       ; Reset ms counter
-                      45     
-                      46                 ; Update seconds
-0067 08               47                 INC     R0             ; Increment ones second
-0068 E8               48                 MOV     A, R0
-0069 B40A17           49                 CJNE    A, #0Ah, Display    ; If not 10
-006C 7800             50                 MOV     R0, #00h       ; Reset ones second
-                      51                 
-                      52                 ; Update tens seconds
-006E 09               53                 INC     R1             ; Increment tens seconds
-006F E9               54                 MOV     A, R1
-0070 B40610           55                 CJNE    A, #06h, Display    ; If not 60 seconds
-0073 7900             56                 MOV     R1, #00h       ; Reset tens seconds
-                      57                 
-A51 MACRO ASSEMBLER  STOPWATCH                                                            02/13/2025 11:35:35 PAGE     2
+                      30     ;this loop takes aproximatly 70 machine cycles. Timer value might need to be adjusted to  0
+                             xECh, 0xBDh.
+                      31     ; default value is 0xECh, 0x77h
+0050 C0E0             32     Timer0_ISR: PUSH    ACC            
+0052 C0D0             33                 PUSH    PSW
+                      34     
+                      35                 ; Reload timer
+0054 C28C             36                 CLR     TR0            
+0056 758CEC           37                 MOV     TH0, #0ECh     
+0059 758ABD           38                 MOV     TL0, #0BDh     
+005C C28D             39                 CLR     TF0            
+005E D28C             40                 SETB    TR0            
+                      41     
+                      42                 ; Update time counter
+0060 0D               43                 INC     R5             ; Increment ms counter
+0061 ED               44                 MOV     A, R5
+0062 B4C81E           45                 CJNE    A, #0C8h, Display    ; 200 * 5ms = 1 second
+0065 7D00             46                 MOV     R5, #00h       ; Reset ms counter
+                      47     
+                      48                 ; Update seconds
+0067 08               49                 INC     R0             ; Increment ones second
+0068 E8               50                 MOV     A, R0
+0069 B40A17           51                 CJNE    A, #0Ah, Display    ; If not 10
+006C 7800             52                 MOV     R0, #00h       ; Reset ones second
+                      53                 
+                      54                 ; Update tens seconds
+006E 09               55                 INC     R1             ; Increment tens seconds
+006F E9               56                 MOV     A, R1
+A51 MACRO ASSEMBLER  STOPWATCH                                                            02/13/2025 17:18:13 PAGE     2
 
-                      58                 ; Update minutes
-0075 0A               59                 INC     R2             ; Increment minutes
-0076 EA               60                 MOV     A, R2
-0077 B40A09           61                 CJNE    A, #0Ah, Display    ; If not 10 minutes
-007A 7A00             62                 MOV     R2, #00h       ; Reset minutes
-                      63                 
-                      64                 ; Update tens minutes
-007C 0B               65                 INC     R3             ; Increment tens minutes
-007D EB               66                 MOV     A, R3
-007E B40602           67                 CJNE    A, #06h, Display    ; If not 60 minutes
-0081 7B00             68                 MOV     R3, #00h       ; Reset tens minutes
-                      69     
-0083                  70     Display:    ; Get current position and display digit
-0083 EC               71                 MOV     A, R4          
-0084 B40003           72                 CJNE    A, #00h, Try_Pos1
-0087 EB               73                 MOV     A, R3          ; Get 10 minutes
-0088 8013             74                 SJMP    Output_Digit
-                      75     
-008A B40105           76     Try_Pos1:   CJNE    A, #01h, Try_Pos2
-008D EA               77                 MOV     A, R2          ; Get 1 minute
-008E 4410             78                 ORL     A, #10h        
-0090 800B             79                 SJMP    Output_Digit
-                      80     
-0092 B40205           81     Try_Pos2:   CJNE    A, #02h, Try_Pos3
-0095 E9               82                 MOV     A, R1          ; Get 10 seconds
-0096 4420             83                 ORL     A, #20h        
-0098 8003             84                 SJMP    Output_Digit
-                      85     
-009A E8               86     Try_Pos3:   MOV     A, R0          ; Get 1 second
-009B 4430             87                 ORL     A, #30h        
-                      88     
-009D                  89     Output_Digit:
-009D F590             90                 MOV     P1, A          
-                      91     
-                      92                 ; Update display position
-009F EC               93                 MOV     A, R4
-00A0 04               94                 INC     A              
-00A1 B40402           95                 CJNE    A, #04h, Save_Pos
-00A4 7400             96                 MOV     A, #00h        
-00A6 FC               97     Save_Pos:   MOV     R4, A         
-                      98     
-00A7 D0D0             99                 POP     PSW            
-00A9 D0E0            100                 POP     ACC
-00AB 32              101                 RETI
-                     102     
-                     103                 END
-A51 MACRO ASSEMBLER  STOPWATCH                                                            02/13/2025 11:35:35 PAGE     3
+0070 B40610           57                 CJNE    A, #06h, Display    ; If not 60 seconds
+0073 7900             58                 MOV     R1, #00h       ; Reset tens seconds
+                      59                 
+                      60                 ; Update minutes
+0075 0A               61                 INC     R2             ; Increment minutes
+0076 EA               62                 MOV     A, R2
+0077 B40A09           63                 CJNE    A, #0Ah, Display    ; If not 10 minutes
+007A 7A00             64                 MOV     R2, #00h       ; Reset minutes
+                      65                 
+                      66                 ; Update tens minutes
+007C 0B               67                 INC     R3             ; Increment tens minutes
+007D EB               68                 MOV     A, R3
+007E B40602           69                 CJNE    A, #06h, Display    ; If not 60 minutes
+0081 7B00             70                 MOV     R3, #00h       ; Reset tens minutes
+                      71     
+0083                  72     Display:    ; Get current position and display digit
+0083 EC               73                 MOV     A, R4          
+0084 B40003           74                 CJNE    A, #00h, Try_Pos1
+0087 EB               75                 MOV     A, R3          ; Get 10 minutes
+0088 8013             76                 SJMP    Output_Digit
+                      77     
+008A B40105           78     Try_Pos1:   CJNE    A, #01h, Try_Pos2
+008D EA               79                 MOV     A, R2          ; Get 1 minute
+008E 4410             80                 ORL     A, #10h        
+0090 800B             81                 SJMP    Output_Digit
+                      82     
+0092 B40205           83     Try_Pos2:   CJNE    A, #02h, Try_Pos3
+0095 E9               84                 MOV     A, R1          ; Get 10 seconds
+0096 4420             85                 ORL     A, #20h        
+0098 8003             86                 SJMP    Output_Digit
+                      87     
+009A E8               88     Try_Pos3:   MOV     A, R0          ; Get 1 second
+009B 4430             89                 ORL     A, #30h        
+                      90     
+009D                  91     Output_Digit:
+009D F590             92                 MOV     P1, A          
+                      93     
+                      94                 ; Update display position
+009F EC               95                 MOV     A, R4
+00A0 04               96                 INC     A              
+00A1 B40402           97                 CJNE    A, #04h, Save_Pos
+00A4 7400             98                 MOV     A, #00h        
+00A6 FC               99     Save_Pos:   MOV     R4, A         
+                     100     
+00A7 D0D0            101                 POP     PSW            
+00A9 D0E0            102                 POP     ACC
+00AB 32              103                 RETI
+                     104     
+                     105                 END
+A51 MACRO ASSEMBLER  STOPWATCH                                                            02/13/2025 17:18:13 PAGE     3
 
 SYMBOL TABLE LISTING
 ------ ----- -------
