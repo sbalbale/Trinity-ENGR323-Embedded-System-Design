@@ -1,86 +1,103 @@
-ORG 0000h
-    AJMP MainProg
+            ORG     0000h           
+            AJMP    MAIN           
 
-ORG 000Bh                  ; Timer 0 interrupt vector
-    AJMP Timer0_ISR
+            ORG     000Bh          
+            AJMP    Timer0_ISR
 
-ORG 0100h
-MainProg:
-    MOV SP, #30h          ; Initialize stack pointer
-    MOV TMOD, #01h        ; Timer 0, mode 1 (16-bit)
+            ORG     0030h          
+MAIN:       MOV     SP, #30h       
+            MOV     TMOD, #01h     
 
-    ; Initialize Timer 0 for 5ms interrupts (12MHz clock)
-    MOV TH0, #0ECh        ; Load timer high byte
-    MOV TL0, #078h        ; Load timer low byte
+            ; Timer 0 setup for 5ms
+            MOV     TH0, #0ECh     
+            MOV     TL0, #077h     
 
-    ; Initialize display digits in RAM
-    MOV 20h, #01h         ; First digit (1)
-    MOV 21h, #02h         ; Second digit (2)
-    MOV 22h, #03h         ; Third digit (3)
-    MOV 23h, #04h         ; Fourth digit (4)
-    MOV 24h, #00h         ; Current display position (0-3)
+            ; Initialize registers for time values
+            MOV     R0, #00h      ; 1 second digit
+            MOV     R1, #00h      ; 10 seconds digit
+            MOV     R2, #00h      ; 1 minute digit
+            MOV     R3, #00h      ; 10 minutes digit
+            MOV     R4, #00h      ; Display position
+            MOV     R5, #00h      ; Counter for 1 second (200 * 5ms = 1000ms)
+            
+            ; Enable interrupts
+            SETB    ET0            
+            SETB    EA             
+            SETB    TR0            
 
-    ; Enable interrupts
-    SETB ET0              ; Enable Timer 0 interrupt
-    SETB EA               ; Enable global interrupts
-    SETB TR0              ; Start Timer 0
+MainLoop:   SJMP    MainLoop       
 
-MainLoop:
-    SJMP MainLoop         ; Main program loop (empty)
+Timer0_ISR: PUSH    ACC            
+            PUSH    PSW
 
-Timer0_ISR:
-    PUSH ACC              ; Save accumulator
-    PUSH PSW              ; Save program status word
+            ; Reload timer
+            CLR     TR0            
+            MOV     TH0, #0ECh     
+            MOV     TL0, #077h     
+            CLR     TF0            
+            SETB    TR0            
 
-    ; Reload timer for next 5ms interrupt
-    CLR TR0               ; Stop timer
-    MOV TH0, #0ECh        ; Reload high byte
-    MOV TL0, #077h        ; Reload low byte
-    CLR TF0               ; Clear overflow flag
-    SETB TR0              ; Restart timer
+            ; Update time counter
+            INC     R5             ; Increment ms counter
+            MOV     A, R5
+            CJNE    A, #0C8h, Display    ; 200 * 5ms = 1 second
+            MOV     R5, #00h       ; Reset ms counter
 
-    ; Get current display position
-    MOV A, 24h            ; Load current position
+            ; Update seconds
+            INC     R0             ; Increment ones second
+            MOV     A, R0
+            CJNE    A, #0Ah, Display    ; If not 10
+            MOV     R0, #00h       ; Reset ones second
+            
+            ; Update tens seconds
+            INC     R1             ; Increment tens seconds
+            MOV     A, R1
+            CJNE    A, #06h, Display    ; If not 60 seconds
+            MOV     R1, #00h       ; Reset tens seconds
+            
+            ; Update minutes
+            INC     R2             ; Increment minutes
+            MOV     A, R2
+            CJNE    A, #0Ah, Display    ; If not 10 minutes
+            MOV     R2, #00h       ; Reset minutes
+            
+            ; Update tens minutes
+            INC     R3             ; Increment tens minutes
+            MOV     A, R3
+            CJNE    A, #06h, Display    ; If not 60 minutes
+            MOV     R3, #00h       ; Reset tens minutes
 
-    ; Display digit based on position
-    CJNE A, #00h, Try_Pos1
-    MOV A, 20h            ; Get digit 1
-    ANL A, #0Fh           ; Mask for BCD
-    SJMP Output_Digit
+Display:    ; Get current position and display digit
+            MOV     A, R4          
+            CJNE    A, #00h, Try_Pos1
+            MOV     A, R3          ; Get 10 minutes
+            SJMP    Output_Digit
 
-Try_Pos1:
-    CJNE A, #01h, Try_Pos2
-    MOV A, 21h            ; Get digit 2
-    ANL A, #0Fh           ; Mask for BCD
-    ORL A, #010h          ; Set DMUX for position 1
-    SJMP Output_Digit
+Try_Pos1:   CJNE    A, #01h, Try_Pos2
+            MOV     A, R2          ; Get 1 minute
+            ORL     A, #10h        
+            SJMP    Output_Digit
 
-Try_Pos2:
-    CJNE A, #02h, Try_Pos3
-    MOV A, 22h            ; Get digit 3
-    ANL A, #0Fh           ; Mask for BCD
-    ORL A, #020h          ; Set DMUX for position 2
-    SJMP Output_Digit
+Try_Pos2:   CJNE    A, #02h, Try_Pos3
+            MOV     A, R1          ; Get 10 seconds
+            ORL     A, #20h        
+            SJMP    Output_Digit
 
-Try_Pos3:
-    MOV A, 23h            ; Get digit 4
-    ANL A, #0Fh           ; Mask for BCD
-    ORL A, #030h          ; Set DMUX for position 3
+Try_Pos3:   MOV     A, R0          ; Get 1 second
+            ORL     A, #30h        
 
 Output_Digit:
-    MOV P1, A             ; Output to display
+            MOV     P1, A          
 
-    ; Update position counter
-    MOV A, 24h
-    INC A                 ; Increment position
-    CJNE A, #04h, Save_Pos
-    MOV A, #00h           ; Reset to 0 if reached 4
+            ; Update display position
+            MOV     A, R4
+            INC     A              
+            CJNE    A, #04h, Save_Pos
+            MOV     A, #00h        
+Save_Pos:   MOV     R4, A         
 
-Save_Pos:
-    MOV 24h, A            ; Save new position
+            POP     PSW            
+            POP     ACC
+            RETI
 
-    POP PSW               ; Restore program status word
-    POP ACC               ; Restore accumulator
-    RETI
-
-END
+            END
