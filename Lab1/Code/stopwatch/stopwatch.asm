@@ -27,6 +27,7 @@ MAIN:       MOV     SP, #30h
 
 MainLoop:   SJMP    MainLoop       
 
+;this loop takes aproximatly 70 machine cycles. Timer value might need to be adjusted to  0xECh, 0xBDh.
 Timer0_ISR: PUSH    ACC            
             PUSH    PSW
 
