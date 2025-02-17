@@ -1,4 +1,4 @@
-A51 MACRO ASSEMBLER  STOPWATCH                                                            02/13/2025 17:18:13 PAGE     1
+A51 MACRO ASSEMBLER  STOPWATCH                                                            02/17/2025 14:11:10 PAGE     1
 
 
 MACRO ASSEMBLER A51 V8.2.7.0
@@ -20,7 +20,7 @@ LOC  OBJ            LINE     SOURCE
                       10     
                       11                 ; Timer 0 setup for 5ms
 0036 758CEC           12                 MOV     TH0, #0ECh     
-0039 758ABD           13                 MOV     TL0, #0BDh     
+0039 758A78           13                 MOV     TL0, #078h     
                       14     
                       15                 ; Initialize registers for time values
 003C 7800             16                 MOV     R0, #00h      ; 1 second digit
@@ -46,7 +46,7 @@ LOC  OBJ            LINE     SOURCE
                       35                 ; Reload timer
 0054 C28C             36                 CLR     TR0            
 0056 758CEC           37                 MOV     TH0, #0ECh     
-0059 758ABD           38                 MOV     TL0, #0BDh     
+0059 758A8B           38                 MOV     TL0, #08Bh     
 005C C28D             39                 CLR     TF0            
 005E D28C             40                 SETB    TR0            
                       41     
@@ -65,7 +65,7 @@ LOC  OBJ            LINE     SOURCE
                       54                 ; Update tens seconds
 006E 09               55                 INC     R1             ; Increment tens seconds
 006F E9               56                 MOV     A, R1
-A51 MACRO ASSEMBLER  STOPWATCH                                                            02/13/2025 17:18:13 PAGE     2
+A51 MACRO ASSEMBLER  STOPWATCH                                                            02/17/2025 14:11:10 PAGE     2
 
 0070 B40610           57                 CJNE    A, #06h, Display    ; If not 60 seconds
 0073 7900             58                 MOV     R1, #00h       ; Reset tens seconds
@@ -116,7 +116,7 @@ LOC  OBJ            LINE     SOURCE
 00AB 32              103                 RETI
                      104     
                      105                 END
-A51 MACRO ASSEMBLER  STOPWATCH                                                            02/13/2025 17:18:13 PAGE     3
+A51 MACRO ASSEMBLER  STOPWATCH                                                            02/17/2025 14:11:10 PAGE     3
 
 SYMBOL TABLE LISTING
 ------ ----- -------

@@ -10,7 +10,7 @@ MAIN:       MOV     SP, #30h
 
             ; Timer 0 setup for 5ms
             MOV     TH0, #0ECh     
-            MOV     TL0, #0BDh     
+            MOV     TL0, #078h     
 
             ; Initialize registers for time values
             MOV     R0, #00h      ; 1 second digit
@@ -35,7 +35,7 @@ Timer0_ISR: PUSH    ACC
             ; Reload timer
             CLR     TR0            
             MOV     TH0, #0ECh     
-            MOV     TL0, #0BDh     
+            MOV     TL0, #08Bh     
             CLR     TF0            
             SETB    TR0            
 
