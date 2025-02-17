@@ -69,9 +69,11 @@ Timer0_ISR: PUSH    ACC
             PUSH    PSW
 
             ; Reload timer for next 5ms
+            ;default value is 0x0EC78
+            ;adjusting for cycle time test value of 0x0EC8C
             CLR     TR0            
             MOV     TH0, #0ECh     
-            MOV     TL0, #078h     
+            MOV     TL0, #08Ch     
             CLR     TF0            
             SETB    TR0            
 

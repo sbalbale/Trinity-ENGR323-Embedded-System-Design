@@ -1,4 +1,4 @@
-A51 MACRO ASSEMBLER  STOPWATCH                                                            02/17/2025 15:19:12 PAGE     1
+A51 MACRO ASSEMBLER  STOPWATCH                                                            02/17/2025 15:34:57 PAGE     1
 
 
 MACRO ASSEMBLER A51 V8.2.7.0
@@ -65,7 +65,7 @@ LOC  OBJ            LINE     SOURCE
 0062 0A               55                 INC     R2            ; Increment minutes
 0063 EA               56                 MOV     A, R2
 0064 B40AE7           57                 CJNE    A, #0Ah, MainLoop  
-A51 MACRO ASSEMBLER  STOPWATCH                                                            02/17/2025 15:19:12 PAGE     2
+A51 MACRO ASSEMBLER  STOPWATCH                                                            02/17/2025 15:34:57 PAGE     2
 
 0067 7A00             58                 MOV     R2, #00h      ; Reset minutes
                       59                 
@@ -81,50 +81,52 @@ LOC  OBJ            LINE     SOURCE
 0074 C0D0             69                 PUSH    PSW
                       70     
                       71                 ; Reload timer for next 5ms
-0076 C28C             72                 CLR     TR0            
-0078 758CEC           73                 MOV     TH0, #0ECh     
-007B 758A78           74                 MOV     TL0, #078h     
-007E C28D             75                 CLR     TF0            
-0080 D28C             76                 SETB    TR0            
-                      77     
-                      78                 ; Increment 5ms counter
-0082 0D               79                 INC     R5            ; For main loop timing
-                      80     
-                      81                 ; Display multiplexing
-0083 EC               82                 MOV     A, R4          
-0084 B40003           83                 CJNE    A, #00h, Try_Pos1
-0087 EB               84                 MOV     A, R3          ; Display 10 minutes
-0088 8013             85                 SJMP    Output_Digit
-                      86     
-008A B40105           87     Try_Pos1:   CJNE    A, #01h, Try_Pos2
-008D EA               88                 MOV     A, R2          ; Display 1 minute
-008E 4410             89                 ORL     A, #10h        
-0090 800B             90                 SJMP    Output_Digit
-                      91     
-0092 B40205           92     Try_Pos2:   CJNE    A, #02h, Try_Pos3
-0095 E9               93                 MOV     A, R1          ; Display 10 seconds
-0096 4420             94                 ORL     A, #20h        
-0098 8003             95                 SJMP    Output_Digit
-                      96     
-009A E8               97     Try_Pos3:   MOV     A, R0          ; Display 1 second
-009B 4430             98                 ORL     A, #30h        
-                      99     
-009D                 100     Output_Digit:
-009D F590            101                 MOV     P1, A          
-                     102     
-                     103                 ; Update display position
-009F EC              104                 MOV     A, R4
-00A0 04              105                 INC     A              
-00A1 B40402          106                 CJNE    A, #04h, Save_Pos
-00A4 7400            107                 MOV     A, #00h        
-00A6 FC              108     Save_Pos:   MOV     R4, A         
-                     109     
-00A7 D0D0            110                 POP     PSW            
-00A9 D0E0            111                 POP     ACC
-00AB 32              112                 RETI
-                     113     
-                     114                 END
-A51 MACRO ASSEMBLER  STOPWATCH                                                            02/17/2025 15:19:12 PAGE     3
+                      72                 ;default value is 0x0EC78
+                      73                 ;adjusting for cycle time test value of 0x0EC8C
+0076 C28C             74                 CLR     TR0            
+0078 758CEC           75                 MOV     TH0, #0ECh     
+007B 758A8C           76                 MOV     TL0, #08Ch     
+007E C28D             77                 CLR     TF0            
+0080 D28C             78                 SETB    TR0            
+                      79     
+                      80                 ; Increment 5ms counter
+0082 0D               81                 INC     R5            ; For main loop timing
+                      82     
+                      83                 ; Display multiplexing
+0083 EC               84                 MOV     A, R4          
+0084 B40003           85                 CJNE    A, #00h, Try_Pos1
+0087 EB               86                 MOV     A, R3          ; Display 10 minutes
+0088 8013             87                 SJMP    Output_Digit
+                      88     
+008A B40105           89     Try_Pos1:   CJNE    A, #01h, Try_Pos2
+008D EA               90                 MOV     A, R2          ; Display 1 minute
+008E 4410             91                 ORL     A, #10h        
+0090 800B             92                 SJMP    Output_Digit
+                      93     
+0092 B40205           94     Try_Pos2:   CJNE    A, #02h, Try_Pos3
+0095 E9               95                 MOV     A, R1          ; Display 10 seconds
+0096 4420             96                 ORL     A, #20h        
+0098 8003             97                 SJMP    Output_Digit
+                      98     
+009A E8               99     Try_Pos3:   MOV     A, R0          ; Display 1 second
+009B 4430            100                 ORL     A, #30h        
+                     101     
+009D                 102     Output_Digit:
+009D F590            103                 MOV     P1, A          
+                     104     
+                     105                 ; Update display position
+009F EC              106                 MOV     A, R4
+00A0 04              107                 INC     A              
+00A1 B40402          108                 CJNE    A, #04h, Save_Pos
+00A4 7400            109                 MOV     A, #00h        
+00A6 FC              110     Save_Pos:   MOV     R4, A         
+                     111     
+00A7 D0D0            112                 POP     PSW            
+00A9 D0E0            113                 POP     ACC
+00AB 32              114                 RETI
+                     115     
+                     116                 END
+A51 MACRO ASSEMBLER  STOPWATCH                                                            02/17/2025 15:34:57 PAGE     3
 
 SYMBOL TABLE LISTING
 ------ ----- -------
