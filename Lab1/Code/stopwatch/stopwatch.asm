@@ -11,60 +11,50 @@
 MAIN:       MOV     SP, #30h       
             MOV     TMOD, #01h     ; Timer 0, mode 1 (16-bit)
 
-            ; Timer 0 setup for 5ms
-            MOV     TH0, #0ECh     
-            MOV     TL0, #078h     
-
             ; Initialize registers
-            MOV     R0, #00h      ; 1/100 second digit (stopwatch)
-            MOV     R1, #00h      ; 1/10 second digit (stopwatch)
-            MOV     R2, #00h      ; seconds digit (stopwatch)
-            MOV     R3, #00h      ; 10 seconds digit (stopwatch)
+            MOV     R0, #00h      ; 1/100 second digit (0-9)
+            MOV     R1, #00h      ; 1/10 second digit (0-9)
+            MOV     R2, #00h      ; seconds digit (0-9)
+            MOV     R3, #00h      ; 10 seconds digit (0-5)
             MOV     R4, #00h      ; Display position
-            MOV     R5, #00h      ; Counter for 5ms intervals
+            MOV     R5, #00h      ; MS counter (0-9 for 10ms)
             MOV     R6, #00h     ; Mode (0=Clock, 1=Run, 2=Stop)
-            MOV     30h, #00h     ; Clock seconds (ones)
-            MOV     31h, #00h     ; Clock seconds (tens)
-            MOV     32h, #00h     ; Clock minutes (ones)
-            MOV     33h, #00h     ; Clock minutes (tens)
+            MOV     21h, #00h     ; Clock MS counter
+            MOV     30h, #00h     ; Clock seconds
+            MOV     31h, #00h     ; Clock minutes
             
-            ; Setup External Interrupt 1
-            SETB    IT1           ; Falling edge triggered
-            SETB    EX1           ; Enable INT1
+            ; Setup External Interrupt 0
+            SETB    IT1           ; Edge triggered
+            SETB    EX1           ; Enable INT0
             
             ; Enable display refresh timer
             SETB    ET0           ; Enable Timer 0
             SETB    EA            ; Enable global interrupts
             SETB    TR0           ; Start Timer 0
 
-MainLoop:   ; Check if 1 second has elapsed (clock)
-            MOV     A, R5
-            CJNE    A, #0C8h, Check_Stopwatch  ; Wait for 200 * 5ms
-            MOV     R5, #00h      ; Reset counter
+MainLoop:   ACALL   MSECDelay     ; 1ms delay
 
+            ; Always update clock first
+            INC     21h          ; Count milliseconds
+            MOV     A, 21h
+            CJNE    A, #64h, Check_Stopwatch  ; Wait for 1000ms
+            MOV     21h, #00h    ; Reset MS counter
+            
             ; Update clock seconds
-            INC     30h           ; Increment ones second
             MOV     A, 30h
-            CJNE    A, #0Ah, Check_Stopwatch
-            MOV     30h, #00h     ; Reset ones second
+            INC     A
+            CJNE    A, #3Ch, Save_Clock_Sec  ; 60 seconds
+            MOV     A, #00h
             
-            ; Update tens seconds
-            INC     31h           ; Increment tens seconds
+            ; Update clock minutes
             MOV     A, 31h
-            CJNE    A, #06h, Check_Stopwatch
-            MOV     31h, #00h     ; Reset tens seconds
+            INC     A
+            CJNE    A, #3Ch, Save_Clock_Min  ; 60 minutes
+            MOV     A, #00h
             
-            ; Update minutes
-            INC     32h           ; Increment minutes
-            MOV     A, 32h
-            CJNE    A, #0Ah, Check_Stopwatch
-            MOV     32h, #00h     ; Reset minutes
-            
-            ; Update tens minutes
-            INC     33h           ; Increment tens minutes
-            MOV     A, 33h
-            CJNE    A, #06h, Check_Stopwatch
-            MOV     33h, #00h     ; Reset tens minutes
+Save_Clock_Min:     MOV     31h, A
+Save_Clock_Sec:     MOV     30h, A
+                    SJMP    MainLoop
 
 Check_Stopwatch:
             ; Check current mode
@@ -72,8 +62,9 @@ Check_Stopwatch:
             CJNE    A, #01h, MainLoop  ; If not mode 1, skip stopwatch
 
             ; Update stopwatch
+            INC     R5            ; Count milliseconds
             MOV     A, R5
-            CJNE    A, #02h, MainLoop  ; Wait for 10ms (2 * 5ms)
+            CJNE    A, #0Ah, MainLoop  ; Wait for 10ms
             MOV     R5, #00h     ; Reset MS counter
 
             ; Update stopwatch digits
@@ -125,15 +116,9 @@ Save_Mode:  MOV     R6, A
 Timer0_ISR: PUSH    ACC            
             PUSH    PSW
 
-            ; Reload timer for next 5ms
-            CLR     TR0            
+            ; Reload timer (5ms)
             MOV     TH0, #0ECh     
             MOV     TL0, #08Ch     
-            CLR     TF0            
-            SETB    TR0            
-
-            ; Increment 5ms counter
-            INC     R5            
 
             ; Select display based on mode
             MOV     A, R6
@@ -141,20 +126,30 @@ Timer0_ISR: PUSH    ACC
 
 Show_Clock: MOV     A, R4          
             CJNE    A, #00h, Clock_Pos1
-            MOV     A, 33h         ; Display 10 minutes
+            MOV     A, 31h         ; Minutes tens
+            MOV     B, #0Ah
+            DIV     AB
             SJMP    Output_Digit
 
 Clock_Pos1: CJNE    A, #01h, Clock_Pos2
-            MOV     A, 32h         ; Display 1 minute
+            MOV     A, 31h         ; Minutes ones
+            MOV     B, #0Ah
+            DIV     AB
+            MOV     A, B
             ORL     A, #10h        
             SJMP    Output_Digit
 
 Clock_Pos2: CJNE    A, #02h, Clock_Pos3
-            MOV     A, 31h         ; Display 10 seconds
+            MOV     A, 30h         ; Seconds tens
+            MOV     B, #0Ah
+            DIV     AB
             ORL     A, #20h        
             SJMP    Output_Digit
 
-Clock_Pos3: MOV     A, 30h         ; Display 1 second
+Clock_Pos3: MOV     A, 30h         ; Seconds ones
+            MOV     B, #0Ah
+            DIV     AB
+            MOV     A, B
             ORL     A, #30h        
             SJMP    Output_Digit
 
