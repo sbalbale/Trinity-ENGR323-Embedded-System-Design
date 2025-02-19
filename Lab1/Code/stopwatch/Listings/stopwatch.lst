@@ -1,4 +1,4 @@
-A51 MACRO ASSEMBLER  STOPWATCH                                                            02/19/2025 15:55:25 PAGE     1
+A51 MACRO ASSEMBLER  STOPWATCH                                                            02/19/2025 16:02:00 PAGE     1
 
 
 MACRO ASSEMBLER A51 V8.2.7.0
@@ -12,10 +12,10 @@ LOC  OBJ            LINE     SOURCE
 0000 2100              2                 AJMP    MAIN           
                        3     
 0013                   4                 ORG     0013h          ; External Interrupt 1 vector
-0013 217B              5                 AJMP    EXT1_ISR           
+0013 217D              5                 AJMP    EXT1_ISR           
                        6     
 000B                   7                 ORG     000Bh          ; Timer 0 vector
-000B 218C              8                 AJMP    Timer0_ISR
+000B 2190              8                 AJMP    Timer0_ISR
                        9     
 0100                  10                 ORG     0100h          
 0100 758130           11     MAIN:       MOV     SP, #30h       
@@ -28,183 +28,180 @@ LOC  OBJ            LINE     SOURCE
 010C 7B00             18                 MOV     R3, #00h      ; 10 seconds digit (0-5)
 010E 7C00             19                 MOV     R4, #00h      ; Display position
 0110 7D00             20                 MOV     R5, #00h      ; MS counter (0-9 for 10ms)
-0112 7E00             21                 MOV     R6, #00h     ; Mode (0=Clock, 1=Run, 2=Stop)
-0114 752100           22                 MOV     21h, #00h     ; Clock MS counter
-0117 753000           23                 MOV     30h, #00h     ; Clock seconds
-011A 753100           24                 MOV     31h, #00h     ; Clock minutes
+0112 752000           21                 MOV     20h, #00h     ; Mode (0=Clock, 1=Run, 2=Stop)
+0115 753000           22                 MOV     30h, #00h     ; Clock MS counter
+0118 753100           23                 MOV     31h, #00h     ; Clock seconds
+011B 753200           24                 MOV     32h, #00h     ; Clock minutes
                       25                 
-                      26                 ; Setup External Interrupt 0
-011D D28A             27                 SETB    IT1           ; Edge triggered
-011F D2AA             28                 SETB    EX1           ; Enable INT0
+                      26                 ; Setup External Interrupt 1
+011E D28A             27                 SETB    IT1           ; Falling edge triggered
+0120 D2AA             28                 SETB    EX1           ; Enable INT1
                       29                 
                       30                 ; Enable display refresh timer
-0121 D2A9             31                 SETB    ET0           ; Enable Timer 0
-0123 D2AF             32                 SETB    EA            ; Enable global interrupts
-0125 D28C             33                 SETB    TR0           ; Start Timer 0
+0122 D2A9             31                 SETB    ET0           ; Enable Timer 0
+0124 D2AF             32                 SETB    EA            ; Enable global interrupts
+0126 D28C             33                 SETB    TR0           ; Start Timer 0
                       34     
-0127 3172             35     MainLoop:   ACALL   MSECDelay     ; 1ms delay
+0128 3174             35     MainLoop:   ACALL   MSECDelay     ; 1ms delay
                       36     
                       37                 ; Always update clock first
-0129 0521             38                 INC     21h          ; Count milliseconds
-012B E521             39                 MOV     A, 21h
-012D B46419           40                 CJNE    A, #64h, Check_Stopwatch  ; Wait for 1000ms
-0130 752100           41                 MOV     21h, #00h    ; Reset MS counter
+012A 0530             38                 INC     30h           ; Count milliseconds
+012C E530             39                 MOV     A, 30h
+012E                  40                 CJNE    A, #E8h, Check_Stopwatch  ; Wait for 1000ms (232 decimal)
+*** _________________________________________________^
+*** ERROR #A45 IN 40 (stopwatch.asm, LINE 40): UNDEFINED SYMBOL (PASS-2)
+0131 753000           41                 MOV     30h, #00h     ; Reset MS counter
                       42                 
                       43                 ; Update clock seconds
-0133 E530             44                 MOV     A, 30h
-0135 04               45                 INC     A
-0136 B43C0C           46                 CJNE    A, #3Ch, Save_Clock_Sec  ; 60 seconds
-0139 7400             47                 MOV     A, #00h
+0134 E531             44                 MOV     A, 31h
+0136 04               45                 INC     A
+0137 B43C0C           46                 CJNE    A, #3Ch, Save_Clock_Sec  ; 60 seconds
+013A 7400             47                 MOV     A, #00h
                       48                 
                       49                 ; Update clock minutes
-013B E531             50                 MOV     A, 31h
-013D 04               51                 INC     A
-013E B43C02           52                 CJNE    A, #3Ch, Save_Clock_Min  ; 60 minutes
-0141 7400             53                 MOV     A, #00h
+013C E532             50                 MOV     A, 32h
+013E 04               51                 INC     A
+013F B43C02           52                 CJNE    A, #3Ch, Save_Clock_Min  ; 60 minutes
+0142 7400             53                 MOV     A, #00h
                       54                 
-0143 F531             55     Save_Clock_Min:     MOV     31h, A
-0145 F530             56     Save_Clock_Sec:     MOV     30h, A
-0147 80DE             57                         SJMP    MainLoop
-A51 MACRO ASSEMBLER  STOPWATCH                                                            02/19/2025 15:55:25 PAGE     2
+0144 F532             55     Save_Clock_Min:  MOV     32h, A         ; Save minutes
+A51 MACRO ASSEMBLER  STOPWATCH                                                            02/19/2025 16:02:00 PAGE     2
 
+0146 F531             56     Save_Clock_Sec:  MOV     31h, A         ; Save seconds
+0148 80DE             57                     SJMP    MainLoop
                       58     
-0149                  59     Check_Stopwatch:
+014A                  59     Check_Stopwatch:
                       60                 ; Check current mode
-0149 EE               61                 MOV     A, R6
-014A B401DA           62                 CJNE    A, #01h, MainLoop  ; If not mode 1, skip stopwatch
+014A E520             61                 MOV     A, 20h
+014C B401D9           62                 CJNE    A, #01h, MainLoop  ; If not mode 1, skip stopwatch
                       63     
                       64                 ; Update stopwatch
-014D 0D               65                 INC     R5            ; Count milliseconds
-014E ED               66                 MOV     A, R5
-014F B40AD5           67                 CJNE    A, #0Ah, MainLoop  ; Wait for 10ms
-0152 7D00             68                 MOV     R5, #00h     ; Reset MS counter
+014F 0D               65                 INC     R5            ; Count milliseconds
+0150 ED               66                 MOV     A, R5
+0151 B40AD4           67                 CJNE    A, #0Ah, MainLoop  ; Wait for 10ms
+0154 7D00             68                 MOV     R5, #00h     ; Reset MS counter
                       69     
                       70                 ; Update stopwatch digits
-0154 08               71                 INC     R0           ; 1/100 seconds
-0155 E8               72                 MOV     A, R0
-0156 B40ACE           73                 CJNE    A, #0Ah, MainLoop
-0159 7800             74                 MOV     R0, #00h
+0156 08               71                 INC     R0           ; 1/100 seconds
+0157 E8               72                 MOV     A, R0
+0158 B40ACD           73                 CJNE    A, #0Ah, MainLoop
+015B 7800             74                 MOV     R0, #00h
                       75                 
-015B 09               76                 INC     R1           ; 1/10 seconds
-015C E9               77                 MOV     A, R1
-015D B40AC7           78                 CJNE    A, #0Ah, MainLoop
-0160 7900             79                 MOV     R1, #00h
+015D 09               76                 INC     R1           ; 1/10 seconds
+015E E9               77                 MOV     A, R1
+015F B40AC6           78                 CJNE    A, #0Ah, MainLoop
+0162 7900             79                 MOV     R1, #00h
                       80                 
-0162 0A               81                 INC     R2           ; Seconds
-0163 EA               82                 MOV     A, R2
-0164 B40AC0           83                 CJNE    A, #0Ah, MainLoop
-0167 7A00             84                 MOV     R2, #00h
+0164 0A               81                 INC     R2           ; Seconds
+0165 EA               82                 MOV     A, R2
+0166 B40ABF           83                 CJNE    A, #0Ah, MainLoop
+0169 7A00             84                 MOV     R2, #00h
                       85                 
-0169 0B               86                 INC     R3           ; 10 seconds
-016A EB               87                 MOV     A, R3
-016B B406B9           88                 CJNE    A, #06h, MainLoop  ; Max 59.99 seconds
-016E 7B00             89                 MOV     R3, #00h
-                      90                 
-0170 80B5             91                 SJMP    MainLoop
-                      92                
-                      93     ; 1ms delay routine
-0172 7FC7             94     MSECDelay:  MOV     R7, #0C7h    ; 199 * 1us = 1ms
-0174 1F               95     BackA:      DEC     R7
-0175 00               96                 NOP
-0176 00               97                 NOP
-0177 BF00FA           98                 CJNE    R7, #000h, BackA
-017A 22               99                 RET
-                     100     
-                     101     ; External Interrupt 1 ISR - Toggle modes
-017B C0E0            102     EXT1_ISR:   PUSH    ACC
-017D C0D0            103                 PUSH    PSW
-                     104                 
-017F EE              105                 MOV     A, R6        ; Get current mode
-0180 04              106                 INC     A             ; Next mode
-0181 B40302          107                 CJNE    A, #03h, Save_Mode
-0184 7400            108                 MOV     A, #00h       ; Wrap to mode 0
-0186 FE              109     Save_Mode:  MOV     R6, A
-                     110                 
-0187 D0D0            111                 POP     PSW
-0189 D0E0            112                 POP     ACC
-018B 32              113                 RETI
-                     114     
-                     115     ; Timer 0 ISR - Display refresh only
-018C C0E0            116     Timer0_ISR: PUSH    ACC            
-018E C0D0            117                 PUSH    PSW
-                     118     
-                     119                 ; Reload timer (5ms)
-0190 758CEC          120                 MOV     TH0, #0ECh     
-0193 758A8C          121                 MOV     TL0, #08Ch     
-                     122     
-                     123                 ; Select display based on mode
-A51 MACRO ASSEMBLER  STOPWATCH                                                            02/19/2025 15:55:25 PAGE     3
+016B 0B               86                 INC     R3           ; 10 seconds
+016C EB               87                 MOV     A, R3
+016D B406B8           88                 CJNE    A, #06h, MainLoop  ; Max 59.99 seconds
+0170 7B00             89                 MOV     R3, #00h
+0172 80B4             90                 SJMP    MainLoop
+                      91     
+0174 7FC7             92     MSECDelay:  MOV     R7, #0C7h    ; 199 * 1us = 1ms
+0176 1F               93     BackA:      DEC     R7
+0177 00               94                 NOP
+0178 00               95                 NOP
+0179 BF00FA           96                 CJNE    R7, #000h, BackA
+017C 22               97                 RET
+                      98     
+                      99     ; External Interrupt 1 ISR - Toggle modes
+017D C0E0            100     EXT1_ISR:   PUSH    ACC
+017F C0D0            101                 PUSH    PSW
+                     102                 
+0181 E520            103                 MOV     A, 20h         ; Get current mode
+0183 04              104                 INC     A              ; Next mode
+0184 B40302          105                 CJNE    A, #03h, Save_Mode
+0187 7400            106                 MOV     A, #00h        ; Wrap to mode 0
+0189 F520            107     Save_Mode:  MOV     20h, A         ; Save new mode
+                     108                 
+018B D0D0            109                 POP     PSW
+018D D0E0            110                 POP     ACC
+018F 32              111                 RETI
+                     112     
+                     113     ; Timer 0 ISR - Display refresh
+0190 C0E0            114     Timer0_ISR: PUSH    ACC            
+0192 C0D0            115                 PUSH    PSW
+                     116     
+                     117                 ; Reload timer for 5ms
+0194 758CEC          118                 MOV     TH0, #0ECh     
+0197 758ABD          119                 MOV     TL0, #0BDh     
+                     120     
+                     121                 ; Select display based on mode
+A51 MACRO ASSEMBLER  STOPWATCH                                                            02/19/2025 16:02:00 PAGE     3
 
-0196 EE              124                 MOV     A, R6
-0197 7034            125                 JNZ     Show_Stopwatch
-                     126     
-0199 EC              127     Show_Clock: MOV     A, R4          
-019A B40008          128                 CJNE    A, #00h, Clock_Pos1
-019D E531            129                 MOV     A, 31h         ; Minutes tens
-019F 75F00A          130                 MOV     B, #0Ah
-01A2 84              131                 DIV     AB
-01A3 8042            132                 SJMP    Output_Digit
-                     133     
-01A5 B4010C          134     Clock_Pos1: CJNE    A, #01h, Clock_Pos2
-01A8 E531            135                 MOV     A, 31h         ; Minutes ones
-01AA 75F00A          136                 MOV     B, #0Ah
-01AD 84              137                 DIV     AB
-01AE E5F0            138                 MOV     A, B
-01B0 4410            139                 ORL     A, #10h        
-01B2 8033            140                 SJMP    Output_Digit
-                     141     
-01B4 B4020A          142     Clock_Pos2: CJNE    A, #02h, Clock_Pos3
-01B7 E530            143                 MOV     A, 30h         ; Seconds tens
-01B9 75F00A          144                 MOV     B, #0Ah
-01BC 84              145                 DIV     AB
-01BD 4420            146                 ORL     A, #20h        
-01BF 8026            147                 SJMP    Output_Digit
-                     148     
-01C1 E530            149     Clock_Pos3: MOV     A, 30h         ; Seconds ones
-01C3 75F00A          150                 MOV     B, #0Ah
-01C6 84              151                 DIV     AB
-01C7 E5F0            152                 MOV     A, B
-01C9 4430            153                 ORL     A, #30h        
-01CB 801A            154                 SJMP    Output_Digit
-                     155     
-01CD                 156     Show_Stopwatch:
-01CD EC              157                 MOV     A, R4          
-01CE B40003          158                 CJNE    A, #00h, Stop_Pos1
-01D1 EB              159                 MOV     A, R3          ; 10 seconds
-01D2 8013            160                 SJMP    Output_Digit
-                     161     
-01D4 B40105          162     Stop_Pos1:  CJNE    A, #01h, Stop_Pos2
-01D7 EA              163                 MOV     A, R2          ; Seconds
-01D8 4410            164                 ORL     A, #10h        
-01DA 800B            165                 SJMP    Output_Digit
-                     166     
-01DC B40205          167     Stop_Pos2:  CJNE    A, #02h, Stop_Pos3
-01DF E9              168                 MOV     A, R1          ; 1/10 second
-01E0 4420            169                 ORL     A, #20h        
-01E2 8003            170                 SJMP    Output_Digit
-                     171     
-01E4 E8              172     Stop_Pos3:  MOV     A, R0          ; 1/100 second
-01E5 4430            173                 ORL     A, #30h        
-                     174     
-01E7                 175     Output_Digit:
-01E7 F590            176                 MOV     P1, A          
-                     177     
-                     178                 ; Update display position
-01E9 EC              179                 MOV     A, R4
-01EA 04              180                 INC     A              
-01EB B40402          181                 CJNE    A, #04h, Save_Pos
-01EE 7400            182                 MOV     A, #00h      
-                     183                   
-01F0 FC              184     Save_Pos:   MOV     R4, A         
-                     185     
-01F1 D0D0            186                 POP     PSW            
-01F3 D0E0            187                 POP     ACC
-01F5 32              188                 RETI
-                     189     
-A51 MACRO ASSEMBLER  STOPWATCH                                                            02/19/2025 15:55:25 PAGE     4
-
-                     190                 END
-A51 MACRO ASSEMBLER  STOPWATCH                                                            02/19/2025 15:55:25 PAGE     5
+019A E520            122                 MOV     A, 20h
+019C 7034            123                 JNZ     Show_Stopwatch
+                     124     
+019E EC              125     Show_Clock: MOV     A, R4          
+019F B40008          126                 CJNE    A, #00h, Clock_Pos1
+01A2 E532            127                 MOV     A, 32h         ; Minutes
+01A4 75F00A          128                 MOV     B, #0Ah
+01A7 84              129                 DIV     AB             ; Divide by 10 for tens digit
+01A8 8042            130                 SJMP    Output_Digit
+                     131     
+01AA B4010C          132     Clock_Pos1: CJNE    A, #01h, Clock_Pos2
+01AD E532            133                 MOV     A, 32h         ; Minutes
+01AF 75F00A          134                 MOV     B, #0Ah
+01B2 84              135                 DIV     AB
+01B3 E5F0            136                 MOV     A, B           ; Use remainder for ones digit
+01B5 4410            137                 ORL     A, #10h        
+01B7 8033            138                 SJMP    Output_Digit
+                     139     
+01B9 B4020A          140     Clock_Pos2: CJNE    A, #02h, Clock_Pos3
+01BC E531            141                 MOV     A, 31h         ; Seconds
+01BE 75F00A          142                 MOV     B, #0Ah
+01C1 84              143                 DIV     AB             ; Divide by 10 for tens digit
+01C2 4420            144                 ORL     A, #20h        
+01C4 8026            145                 SJMP    Output_Digit
+                     146     
+01C6 E531            147     Clock_Pos3: MOV     A, 31h         ; Seconds
+01C8 75F00A          148                 MOV     B, #0Ah
+01CB 84              149                 DIV     AB
+01CC E5F0            150                 MOV     A, B           ; Use remainder for ones digit
+01CE 4430            151                 ORL     A, #30h        
+01D0 801A            152                 SJMP    Output_Digit
+                     153     
+01D2                 154     Show_Stopwatch:
+01D2 EC              155                 MOV     A, R4          
+01D3 B40003          156                 CJNE    A, #00h, Stop_Pos1
+01D6 EB              157                 MOV     A, R3          ; 10 seconds
+01D7 8013            158                 SJMP    Output_Digit
+                     159     
+01D9 B40105          160     Stop_Pos1:  CJNE    A, #01h, Stop_Pos2
+01DC EA              161                 MOV     A, R2          ; Seconds
+01DD 4410            162                 ORL     A, #10h        
+01DF 800B            163                 SJMP    Output_Digit
+                     164     
+01E1 B40205          165     Stop_Pos2:  CJNE    A, #02h, Stop_Pos3
+01E4 E9              166                 MOV     A, R1          ; 1/10 second
+01E5 4420            167                 ORL     A, #20h        
+01E7 8003            168                 SJMP    Output_Digit
+                     169     
+01E9 E8              170     Stop_Pos3:  MOV     A, R0          ; 1/100 second
+01EA 4430            171                 ORL     A, #30h        
+                     172     
+01EC                 173     Output_Digit:
+01EC F590            174                 MOV     P1, A          
+                     175     
+                     176                 ; Update display position
+01EE EC              177                 MOV     A, R4
+01EF 04              178                 INC     A              
+01F0 B40402          179                 CJNE    A, #04h, Save_Pos
+01F3 7400            180                 MOV     A, #00h        
+01F5 FC              181     Save_Pos:   MOV     R4, A         
+                     182     
+01F6 D0D0            183                 POP     PSW            
+01F8 D0E0            184                 POP     ACC
+01FA 32              185                 RETI
+                     186     
+                     187                 END
+A51 MACRO ASSEMBLER  STOPWATCH                                                            02/19/2025 16:02:00 PAGE     4
 
 SYMBOL TABLE LISTING
 ------ ----- -------
@@ -214,34 +211,35 @@ N A M E             T Y P E  V A L U E   ATTRIBUTES
 
 ACC. . . . . . . .  D ADDR   00E0H   A   
 B. . . . . . . . .  D ADDR   00F0H   A   
-BACKA. . . . . . .  C ADDR   0174H   A   
-CHECK_STOPWATCH. .  C ADDR   0149H   A   
-CLOCK_POS1 . . . .  C ADDR   01A5H   A   
-CLOCK_POS2 . . . .  C ADDR   01B4H   A   
-CLOCK_POS3 . . . .  C ADDR   01C1H   A   
+BACKA. . . . . . .  C ADDR   0176H   A   
+CHECK_STOPWATCH. .  C ADDR   014AH   A   
+CLOCK_POS1 . . . .  C ADDR   01AAH   A   
+CLOCK_POS2 . . . .  C ADDR   01B9H   A   
+CLOCK_POS3 . . . .  C ADDR   01C6H   A   
+E8H. . . . . . . .    ----   -----       
 EA . . . . . . . .  B ADDR   00A8H.7 A   
 ET0. . . . . . . .  B ADDR   00A8H.1 A   
 EX1. . . . . . . .  B ADDR   00A8H.2 A   
-EXT1_ISR . . . . .  C ADDR   017BH   A   
+EXT1_ISR . . . . .  C ADDR   017DH   A   
 IT1. . . . . . . .  B ADDR   0088H.2 A   
 MAIN . . . . . . .  C ADDR   0100H   A   
-MAINLOOP . . . . .  C ADDR   0127H   A   
-MSECDELAY. . . . .  C ADDR   0172H   A   
-OUTPUT_DIGIT . . .  C ADDR   01E7H   A   
+MAINLOOP . . . . .  C ADDR   0128H   A   
+MSECDELAY. . . . .  C ADDR   0174H   A   
+OUTPUT_DIGIT . . .  C ADDR   01ECH   A   
 P1 . . . . . . . .  D ADDR   0090H   A   
 PSW. . . . . . . .  D ADDR   00D0H   A   
-SAVE_CLOCK_MIN . .  C ADDR   0143H   A   
-SAVE_CLOCK_SEC . .  C ADDR   0145H   A   
-SAVE_MODE. . . . .  C ADDR   0186H   A   
-SAVE_POS . . . . .  C ADDR   01F0H   A   
-SHOW_CLOCK . . . .  C ADDR   0199H   A   
-SHOW_STOPWATCH . .  C ADDR   01CDH   A   
+SAVE_CLOCK_MIN . .  C ADDR   0144H   A   
+SAVE_CLOCK_SEC . .  C ADDR   0146H   A   
+SAVE_MODE. . . . .  C ADDR   0189H   A   
+SAVE_POS . . . . .  C ADDR   01F5H   A   
+SHOW_CLOCK . . . .  C ADDR   019EH   A   
+SHOW_STOPWATCH . .  C ADDR   01D2H   A   
 SP . . . . . . . .  D ADDR   0081H   A   
-STOP_POS1. . . . .  C ADDR   01D4H   A   
-STOP_POS2. . . . .  C ADDR   01DCH   A   
-STOP_POS3. . . . .  C ADDR   01E4H   A   
+STOP_POS1. . . . .  C ADDR   01D9H   A   
+STOP_POS2. . . . .  C ADDR   01E1H   A   
+STOP_POS3. . . . .  C ADDR   01E9H   A   
 TH0. . . . . . . .  D ADDR   008CH   A   
-TIMER0_ISR . . . .  C ADDR   018CH   A   
+TIMER0_ISR . . . .  C ADDR   0190H   A   
 TL0. . . . . . . .  D ADDR   008AH   A   
 TMOD . . . . . . .  D ADDR   0089H   A   
 TR0. . . . . . . .  B ADDR   0088H.4 A   
@@ -250,4 +248,4 @@ TR0. . . . . . . .  B ADDR   0088H.4 A
 REGISTER BANK(S) USED: 0 
 
 
-ASSEMBLY COMPLETE.  0 WARNING(S), 0 ERROR(S)
+ASSEMBLY COMPLETE.  0 WARNING(S), 1 ERROR(S)

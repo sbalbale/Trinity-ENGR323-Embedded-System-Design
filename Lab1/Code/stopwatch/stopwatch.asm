@@ -18,14 +18,14 @@ MAIN:       MOV     SP, #30h
             MOV     R3, #00h      ; 10 seconds digit (0-5)
             MOV     R4, #00h      ; Display position
             MOV     R5, #00h      ; MS counter (0-9 for 10ms)
-            MOV     R6, #00h     ; Mode (0=Clock, 1=Run, 2=Stop)
-            MOV     21h, #00h     ; Clock MS counter
-            MOV     30h, #00h     ; Clock seconds
-            MOV     31h, #00h     ; Clock minutes
+            MOV     20h, #00h     ; Mode (0=Clock, 1=Run, 2=Stop)
+            MOV     30h, #00h     ; Clock MS counter
+            MOV     31h, #00h     ; Clock seconds
+            MOV     32h, #00h     ; Clock minutes
             
-            ; Setup External Interrupt 0
-            SETB    IT1           ; Edge triggered
-            SETB    EX1           ; Enable INT0
+            ; Setup External Interrupt 1
+            SETB    IT1           ; Falling edge triggered
+            SETB    EX1           ; Enable INT1
             
             ; Enable display refresh timer
             SETB    ET0           ; Enable Timer 0
@@ -35,30 +35,30 @@ MAIN:       MOV     SP, #30h
 MainLoop:   ACALL   MSECDelay     ; 1ms delay
 
             ; Always update clock first
-            INC     21h          ; Count milliseconds
-            MOV     A, 21h
-            CJNE    A, #64h, Check_Stopwatch  ; Wait for 1000ms
-            MOV     21h, #00h    ; Reset MS counter
+            INC     30h           ; Count milliseconds
+            MOV     A, 30h
+            CJNE    A, #E8h, Check_Stopwatch  ; Wait for 1000ms (232 decimal)
+            MOV     30h, #00h     ; Reset MS counter
             
             ; Update clock seconds
-            MOV     A, 30h
+            MOV     A, 31h
             INC     A
             CJNE    A, #3Ch, Save_Clock_Sec  ; 60 seconds
             MOV     A, #00h
             
             ; Update clock minutes
-            MOV     A, 31h
+            MOV     A, 32h
             INC     A
             CJNE    A, #3Ch, Save_Clock_Min  ; 60 minutes
             MOV     A, #00h
             
-Save_Clock_Min:     MOV     31h, A
-Save_Clock_Sec:     MOV     30h, A
-                    SJMP    MainLoop
+Save_Clock_Min:  MOV     32h, A         ; Save minutes
+Save_Clock_Sec:  MOV     31h, A         ; Save seconds
+                SJMP    MainLoop
 
 Check_Stopwatch:
             ; Check current mode
-            MOV     A, R6
+            MOV     A, 20h
             CJNE    A, #01h, MainLoop  ; If not mode 1, skip stopwatch
 
             ; Update stopwatch
@@ -87,10 +87,8 @@ Check_Stopwatch:
             MOV     A, R3
             CJNE    A, #06h, MainLoop  ; Max 59.99 seconds
             MOV     R3, #00h
-            
             SJMP    MainLoop
-           
-; 1ms delay routine
+
 MSECDelay:  MOV     R7, #0C7h    ; 199 * 1us = 1ms
 BackA:      DEC     R7
             NOP
@@ -102,54 +100,54 @@ BackA:      DEC     R7
 EXT1_ISR:   PUSH    ACC
             PUSH    PSW
             
-            MOV     A, R6        ; Get current mode
-            INC     A             ; Next mode
+            MOV     A, 20h         ; Get current mode
+            INC     A              ; Next mode
             CJNE    A, #03h, Save_Mode
-            MOV     A, #00h       ; Wrap to mode 0
-Save_Mode:  MOV     R6, A
+            MOV     A, #00h        ; Wrap to mode 0
+Save_Mode:  MOV     20h, A         ; Save new mode
             
             POP     PSW
             POP     ACC
             RETI
 
-; Timer 0 ISR - Display refresh only
+; Timer 0 ISR - Display refresh
 Timer0_ISR: PUSH    ACC            
             PUSH    PSW
 
-            ; Reload timer (5ms)
+            ; Reload timer for 5ms
             MOV     TH0, #0ECh     
-            MOV     TL0, #08Ch     
+            MOV     TL0, #0BDh     
 
             ; Select display based on mode
-            MOV     A, R6
+            MOV     A, 20h
             JNZ     Show_Stopwatch
 
 Show_Clock: MOV     A, R4          
             CJNE    A, #00h, Clock_Pos1
-            MOV     A, 31h         ; Minutes tens
+            MOV     A, 32h         ; Minutes
             MOV     B, #0Ah
-            DIV     AB
+            DIV     AB             ; Divide by 10 for tens digit
             SJMP    Output_Digit
 
 Clock_Pos1: CJNE    A, #01h, Clock_Pos2
-            MOV     A, 31h         ; Minutes ones
+            MOV     A, 32h         ; Minutes
             MOV     B, #0Ah
             DIV     AB
-            MOV     A, B
+            MOV     A, B           ; Use remainder for ones digit
             ORL     A, #10h        
             SJMP    Output_Digit
 
 Clock_Pos2: CJNE    A, #02h, Clock_Pos3
-            MOV     A, 30h         ; Seconds tens
+            MOV     A, 31h         ; Seconds
             MOV     B, #0Ah
-            DIV     AB
+            DIV     AB             ; Divide by 10 for tens digit
             ORL     A, #20h        
             SJMP    Output_Digit
 
-Clock_Pos3: MOV     A, 30h         ; Seconds ones
+Clock_Pos3: MOV     A, 31h         ; Seconds
             MOV     B, #0Ah
             DIV     AB
-            MOV     A, B
+            MOV     A, B           ; Use remainder for ones digit
             ORL     A, #30h        
             SJMP    Output_Digit
 
@@ -179,8 +177,7 @@ Output_Digit:
             MOV     A, R4
             INC     A              
             CJNE    A, #04h, Save_Pos
-            MOV     A, #00h      
-              
+            MOV     A, #00h        
 Save_Pos:   MOV     R4, A         
 
             POP     PSW            
