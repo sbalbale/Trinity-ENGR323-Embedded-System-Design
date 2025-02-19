@@ -1,0 +1,120 @@
+A51 MACRO ASSEMBLER  DISPLAYMODE                                                          02/19/2025 15:20:07 PAGE     1
+
+
+MACRO ASSEMBLER A51 V8.2.7.0
+OBJECT MODULE PLACED IN .\Objects\displayMode.obj
+ASSEMBLER INVOKED BY: C:\Keil_v5\C51\BIN\A51.EXE displayMode.asm SET(SMALL) DEBUG PRINT(.\Listings\displayMode.lst) OBJE
+                      CT(.\Objects\displayMode.obj) EP
+
+LOC  OBJ            LINE     SOURCE
+
+0000                   1                 ORG     0000h           
+0000 0130              2                 AJMP    MAIN           
+                       3     
+0013                   4                 ORG     0013h          ; External Interrupt 1 vector
+0013 0147              5                 AJMP    EXT1_ISR           
+                       6     
+000B                   7                 ORG     000Bh          ; Timer 0 vector
+000B 015A              8                 AJMP    Timer0_ISR
+                       9     
+0030                  10                 ORG     0030h          
+0030 758130           11     MAIN:       MOV     SP, #30h       
+0033 758901           12                 MOV     TMOD, #01h     ; Timer 0, mode 1 (16-bit)
+                      13     
+                      14                 ; Initialize registers
+0036 7C00             15                 MOV     R4, #00h      ; Display position
+0038 752000           16                 MOV     20h, #00h     ; Mode (0-3)
+                      17                 
+                      18                 ; Setup External Interrupt 1
+003B D28A             19                 SETB    IT1           ; Falling edge triggered
+003D D2AA             20                 SETB    EX1           ; Enable INT1
+                      21                 
+                      22                 ; Enable display refresh timer
+003F D2A9             23                 SETB    ET0           ; Enable Timer 0
+0041 D2AF             24                 SETB    EA            ; Enable global interrupts
+0043 D28C             25                 SETB    TR0           ; Start Timer 0
+                      26     
+0045 80FE             27     MainLoop:   SJMP    MainLoop       ; Everything handled by interrupts
+                      28     
+                      29     ; External Interrupt 1 ISR - Toggle modes
+0047 C0E0             30     EXT1_ISR:   PUSH    ACC
+0049 C0D0             31                 PUSH    PSW
+                      32                 
+004B E520             33                 MOV     A, 20h         ; Get current mode
+004D 04               34                 INC     A              ; Next mode
+004E B40402           35                 CJNE    A, #04h, Save_Mode
+0051 7400             36                 MOV     A, #00h        ; Wrap to mode 0
+0053 F520             37     Save_Mode:  MOV     20h, A         ; Save new mode
+                      38                 
+0055 D0D0             39                 POP     PSW
+0057 D0E0             40                 POP     ACC
+0059 32               41                 RETI
+                      42     
+                      43     ; Timer 0 ISR - Display refresh
+005A C0E0             44     Timer0_ISR: PUSH    ACC            
+005C C0D0             45                 PUSH    PSW
+                      46     
+                      47                 ; Reload timer for 5ms
+005E 758CEC           48                 MOV     TH0, #0ECh     
+0061 758ABD           49                 MOV     TL0, #0BDh     
+                      50                 
+                      51                 ; Display current mode
+0064 EC               52                 MOV     A, R4          ; Get display position
+0065 6004             53                 JZ      ShowMode       ; If position 0, show mode
+                      54                 
+                      55                 ; Other positions blank
+0067 74FF             56                 MOV     A, #0FFh       ; Turn off display
+0069 8002             57                 SJMP    Output
+A51 MACRO ASSEMBLER  DISPLAYMODE                                                          02/19/2025 15:20:07 PAGE     2
+
+                      58     
+006B E520             59     ShowMode:   MOV     A, 20h         ; Get current mode
+                      60                 
+006D F590             61     Output:     MOV     P1, A          ; Update display
+                      62     
+                      63                 ; Update display position
+006F EC               64                 MOV     A, R4
+0070 04               65                 INC     A              
+0071 B40402           66                 CJNE    A, #04h, Save_Pos
+0074 7400             67                 MOV     A, #00h        
+0076 FC               68     Save_Pos:   MOV     R4, A         
+                      69     
+0077 D0D0             70                 POP     PSW            
+0079 D0E0             71                 POP     ACC
+007B 32               72                 RETI
+                      73     
+                      74                 END
+A51 MACRO ASSEMBLER  DISPLAYMODE                                                          02/19/2025 15:20:07 PAGE     3
+
+SYMBOL TABLE LISTING
+------ ----- -------
+
+
+N A M E             T Y P E  V A L U E   ATTRIBUTES
+
+ACC. . . . . . . .  D ADDR   00E0H   A   
+EA . . . . . . . .  B ADDR   00A8H.7 A   
+ET0. . . . . . . .  B ADDR   00A8H.1 A   
+EX1. . . . . . . .  B ADDR   00A8H.2 A   
+EXT1_ISR . . . . .  C ADDR   0047H   A   
+IT1. . . . . . . .  B ADDR   0088H.2 A   
+MAIN . . . . . . .  C ADDR   0030H   A   
+MAINLOOP . . . . .  C ADDR   0045H   A   
+OUTPUT . . . . . .  C ADDR   006DH   A   
+P1 . . . . . . . .  D ADDR   0090H   A   
+PSW. . . . . . . .  D ADDR   00D0H   A   
+SAVE_MODE. . . . .  C ADDR   0053H   A   
+SAVE_POS . . . . .  C ADDR   0076H   A   
+SHOWMODE . . . . .  C ADDR   006BH   A   
+SP . . . . . . . .  D ADDR   0081H   A   
+TH0. . . . . . . .  D ADDR   008CH   A   
+TIMER0_ISR . . . .  C ADDR   005AH   A   
+TL0. . . . . . . .  D ADDR   008AH   A   
+TMOD . . . . . . .  D ADDR   0089H   A   
+TR0. . . . . . . .  B ADDR   0088H.4 A   
+
+
+REGISTER BANK(S) USED: 0 
+
+
+ASSEMBLY COMPLETE.  0 WARNING(S), 0 ERROR(S)

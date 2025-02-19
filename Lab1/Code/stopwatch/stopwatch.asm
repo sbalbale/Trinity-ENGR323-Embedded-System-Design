@@ -1,102 +1,175 @@
             ORG     0000h           
             AJMP    MAIN           
 
-            ORG     000Bh          
+            ORG     0013h          ; External Interrupt 1 vector
+            AJMP    EXT1_ISR           
+
+            ORG     000Bh          ; Timer 0 vector
             AJMP    Timer0_ISR
 
-            ORG     0030h          
+            ORG     0100h          
 MAIN:       MOV     SP, #30h       
-            MOV     TMOD, #01h     
+            MOV     TMOD, #01h     ; Timer 0, mode 1 (16-bit)
 
-            ; Timer 0 setup for 5ms
-            MOV     TH0, #0ECh     
-            MOV     TL0, #078h
-
-            ; Initialize registers for time values
-            MOV     R0, #00h      ; 1 second digit
-            MOV     R1, #00h      ; 10 seconds digit
-            MOV     R2, #00h      ; 1 minute digit
-            MOV     R3, #00h      ; 10 minutes digit
+            ; Initialize registers
+            MOV     R0, #00h      ; 1/100 second digit (0-9)
+            MOV     R1, #00h      ; 1/10 second digit (0-9)
+            MOV     R2, #00h      ; seconds digit (0-9)
+            MOV     R3, #00h      ; 10 seconds digit (0-5)
             MOV     R4, #00h      ; Display position
-            MOV     R5, #00h      ; Counter for 1 second (200 * 5ms = 1000ms)
+            MOV     R5, #00h      ; MS counter (0-9 for 10ms)
+            MOV     R6, #00h     ; Mode (0=Clock, 1=Run, 2=Stop)
+            MOV     21h, #00h     ; Clock MS counter
+            MOV     30h, #00h     ; Clock seconds
+            MOV     31h, #00h     ; Clock minutes
             
-            ; Enable interrupts
-            SETB    ET0            
-            SETB    EA             
-            SETB    TR0       
+            ; Setup External Interrupt 0
+            SETB    IT1           ; Edge triggered
+            SETB    EX1           ; Enable INT0
+            
+            ; Enable display refresh timer
+            SETB    ET0           ; Enable Timer 0
+            SETB    EA            ; Enable global interrupts
+            SETB    TR0           ; Start Timer 0
 
+MainLoop:   ACALL   MSECDelay     ; 1ms delay
 
-; MSECDelay:  MOV     R7, #0C7h    ; 199 * 1us = 1ms
-; BackA:      DEC    R7
-;             NOP
-;             NOP
-;             CJNE   R7, #000h, BackA
-;             RET
-     
+            ; Always update clock first
+            INC     21h          ; Count milliseconds
+            MOV     A, 21h
+            CJNE    A, #64h, Check_Stopwatch  ; Wait for 1000ms
+            MOV     21h, #00h    ; Reset MS counter
+            
+            ; Update clock seconds
+            MOV     A, 30h
+            INC     A
+            CJNE    A, #3Ch, Save_Clock_Sec  ; 60 seconds
+            MOV     A, #00h
+            
+            ; Update clock minutes
+            MOV     A, 31h
+            INC     A
+            CJNE    A, #3Ch, Save_Clock_Min  ; 60 minutes
+            MOV     A, #00h
+            
+Save_Clock_Min:      MOV     31h, A
+Save_Clock_Sec:      MOV     30h, A
+                    SJMP    MainLoop
 
-MainLoop:   ; Check if 1 second has elapsed
+Check_Stopwatch:
+            ; Check current mode
+            MOV     A, R6
+            CJNE    A, #01h, MainLoop  ; If not mode 1, skip stopwatch
+
+            ; Update stopwatch
+            INC     R5            ; Count milliseconds
             MOV     A, R5
-            CJNE    A, #0C8h, MainLoop  ; Wait for 200 * 5ms
-            MOV     R5, #00h      ; Reset counter
+            CJNE    A, #0Ah, MainLoop  ; Wait for 10ms
+            MOV     R5, #00h     ; Reset MS counter
 
-            ; Update seconds
-            INC     R0            ; Increment ones second
+            ; Update stopwatch digits
+            INC     R0           ; 1/100 seconds
             MOV     A, R0
-            CJNE    A, #0Ah, MainLoop  
-            MOV     R0, #00h      ; Reset ones second
+            CJNE    A, #0Ah, MainLoop
+            MOV     R0, #00h
             
-            ; Update tens seconds
-            INC     R1            ; Increment tens seconds
+            INC     R1           ; 1/10 seconds
             MOV     A, R1
-            CJNE    A, #06h, MainLoop  
-            MOV     R1, #00h      ; Reset tens seconds
+            CJNE    A, #0Ah, MainLoop
+            MOV     R1, #00h
             
-            ; Update minutes
-            INC     R2            ; Increment minutes
+            INC     R2           ; Seconds
             MOV     A, R2
-            CJNE    A, #0Ah, MainLoop  
-            MOV     R2, #00h      ; Reset minutes
+            CJNE    A, #0Ah, MainLoop
+            MOV     R2, #00h
             
-            ; Update tens minutes
-            INC     R3            ; Increment tens minutes
+            INC     R3           ; 10 seconds
             MOV     A, R3
-            CJNE    A, #06h, MainLoop  
-            MOV     R3, #00h      ; Reset tens minutes
+            CJNE    A, #06h, MainLoop  ; Max 59.99 seconds
+            MOV     R3, #00h
             
-            SJMP    MainLoop      
+            SJMP    MainLoop
+           
+; 1ms delay routine
+MSECDelay:  MOV     R7, #0C7h    ; 199 * 1us = 1ms
+BackA:      DEC     R7
+            NOP
+            NOP
+            CJNE    R7, #000h, BackA
+            RET
 
+; External Interrupt 1 ISR - Toggle modes
+EXT1_ISR:   PUSH    ACC
+            PUSH    PSW
+            
+            MOV     A, R6        ; Get current mode
+            INC     A             ; Next mode
+            CJNE    A, #03h, Save_Mode
+            MOV     A, #00h       ; Wrap to mode 0
+Save_Mode:  MOV     R6, A
+            
+            POP     PSW
+            POP     ACC
+            RETI
+
+; Timer 0 ISR - Display refresh only
 Timer0_ISR: PUSH    ACC            
             PUSH    PSW
 
-            ; Reload timer for next 5ms
-            ;default value is 0x0EC78
-            ;adjusting for cycle time test value of 0x0EC8C
-            CLR     TR0            
+            ; Reload timer (5ms)
             MOV     TH0, #0ECh     
             MOV     TL0, #08Ch     
-            CLR     TF0            
-            SETB    TR0            
 
-            ; Increment 5ms counter
-            INC     R5            ; For main loop timing
+            ; Select display based on mode
+            MOV     A, R6
+            JNZ     Show_Stopwatch
 
-            ; Display multiplexing
-            MOV     A, R4          
-            CJNE    A, #00h, Try_Pos1
-            MOV     A, R3          ; Display 10 minutes
+Show_Clock: MOV     A, R4          
+            CJNE    A, #00h, Clock_Pos1
+            MOV     A, 31h         ; Minutes tens
+            MOV     B, #0Ah
+            DIV     AB
             SJMP    Output_Digit
 
-Try_Pos1:   CJNE    A, #01h, Try_Pos2
-            MOV     A, R2          ; Display 1 minute
+Clock_Pos1: CJNE    A, #01h, Clock_Pos2
+            MOV     A, 31h         ; Minutes ones
+            MOV     B, #0Ah
+            DIV     AB
+            MOV     A, B
             ORL     A, #10h        
             SJMP    Output_Digit
 
-Try_Pos2:   CJNE    A, #02h, Try_Pos3
-            MOV     A, R1          ; Display 10 seconds
+Clock_Pos2: CJNE    A, #02h, Clock_Pos3
+            MOV     A, 30h         ; Seconds tens
+            MOV     B, #0Ah
+            DIV     AB
             ORL     A, #20h        
             SJMP    Output_Digit
 
-Try_Pos3:   MOV     A, R0          ; Display 1 second
+Clock_Pos3: MOV     A, 30h         ; Seconds ones
+            MOV     B, #0Ah
+            DIV     AB
+            MOV     A, B
+            ORL     A, #30h        
+            SJMP    Output_Digit
+
+Show_Stopwatch:
+            MOV     A, R4          
+            CJNE    A, #00h, Stop_Pos1
+            MOV     A, R3          ; 10 seconds
+            SJMP    Output_Digit
+
+Stop_Pos1:  CJNE    A, #01h, Stop_Pos2
+            MOV     A, R2          ; Seconds
+            ORL     A, #10h        
+            SJMP    Output_Digit
+
+Stop_Pos2:  CJNE    A, #02h, Stop_Pos3
+            MOV     A, R1          ; 1/10 second
+            ORL     A, #20h        
+            SJMP    Output_Digit
+
+Stop_Pos3:  MOV     A, R0          ; 1/100 second
             ORL     A, #30h        
 
 Output_Digit:
@@ -106,7 +179,8 @@ Output_Digit:
             MOV     A, R4
             INC     A              
             CJNE    A, #04h, Save_Pos
-            MOV     A, #00h        
+            MOV     A, #00h      
+              
 Save_Pos:   MOV     R4, A         
 
             POP     PSW            

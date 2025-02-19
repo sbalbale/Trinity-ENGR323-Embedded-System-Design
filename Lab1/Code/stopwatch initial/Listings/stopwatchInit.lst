@@ -1,0 +1,163 @@
+A51 MACRO ASSEMBLER  STOPWATCHINIT                                                        02/19/2025 14:40:06 PAGE     1
+
+
+MACRO ASSEMBLER A51 V8.2.7.0
+OBJECT MODULE PLACED IN .\Objects\stopwatchInit.obj
+ASSEMBLER INVOKED BY: C:\Keil_v5\C51\BIN\A51.EXE stopwatchInit.asm SET(SMALL) DEBUG PRINT(.\Listings\stopwatchInit.lst) 
+                      OBJECT(.\Objects\stopwatchInit.obj) EP
+
+LOC  OBJ            LINE     SOURCE
+
+0000                   1                 ORG     0000h           
+0000 0130              2                 AJMP    MAIN           
+                       3     
+000B                   4                 ORG     000Bh          
+000B 0172              5                 AJMP    Timer0_ISR
+                       6     
+0030                   7                 ORG     0030h          
+0030 758130            8     MAIN:       MOV     SP, #30h       
+0033 758901            9                 MOV     TMOD, #01h     
+                      10     
+                      11                 ; Timer 0 setup for 5ms
+0036 758CEC           12                 MOV     TH0, #0ECh     
+0039 758A78           13                 MOV     TL0, #078h
+                      14     
+                      15                 ; Initialize registers for time values
+003C 7800             16                 MOV     R0, #00h      ; 1 second digit
+003E 7900             17                 MOV     R1, #00h      ; 10 seconds digit
+0040 7A00             18                 MOV     R2, #00h      ; 1 minute digit
+0042 7B00             19                 MOV     R3, #00h      ; 10 minutes digit
+0044 7C00             20                 MOV     R4, #00h      ; Display position
+0046 7D00             21                 MOV     R5, #00h      ; Counter for 1 second (200 * 5ms = 1000ms)
+                      22                 
+                      23                 ; Enable interrupts
+0048 D2A9             24                 SETB    ET0            
+004A D2AF             25                 SETB    EA             
+004C D28C             26                 SETB    TR0       
+                      27     
+                      28     
+                      29     
+                      30          
+                      31     
+004E                  32     MainLoop:   ; Check if 1 second has elapsed
+004E ED               33                 MOV     A, R5
+004F B4C8FC           34                 CJNE    A, #0C8h, MainLoop  ; Wait for 200 * 5ms
+0052 7D00             35                 MOV     R5, #00h      ; Reset counter
+                      36     
+                      37                 ; Update seconds
+0054 08               38                 INC     R0            ; Increment ones second
+0055 E8               39                 MOV     A, R0
+0056 B40AF5           40                 CJNE    A, #0Ah, MainLoop  
+0059 7800             41                 MOV     R0, #00h      ; Reset ones second
+                      42                 
+                      43                 ; Update tens seconds
+005B 09               44                 INC     R1            ; Increment tens seconds
+005C E9               45                 MOV     A, R1
+005D B406EE           46                 CJNE    A, #06h, MainLoop  
+0060 7900             47                 MOV     R1, #00h      ; Reset tens seconds
+                      48                 
+                      49                 ; Update minutes
+0062 0A               50                 INC     R2            ; Increment minutes
+0063 EA               51                 MOV     A, R2
+0064 B40AE7           52                 CJNE    A, #0Ah, MainLoop  
+0067 7A00             53                 MOV     R2, #00h      ; Reset minutes
+                      54                 
+                      55                 ; Update tens minutes
+0069 0B               56                 INC     R3            ; Increment tens minutes
+006A EB               57                 MOV     A, R3
+A51 MACRO ASSEMBLER  STOPWATCHINIT                                                        02/19/2025 14:40:06 PAGE     2
+
+006B B406E0           58                 CJNE    A, #06h, MainLoop  
+006E 7B00             59                 MOV     R3, #00h      ; Reset tens minutes
+                      60                 
+0070 80DC             61                 SJMP    MainLoop  
+                      62     
+                      63     ; MSECDelay:  MOV     R7, #0C7h    ; 199 * 1us = 1ms
+                      64     ; BackA:      DEC    R7
+                      65     ;             NOP
+                      66     ;             NOP
+                      67     ;             CJNE   R7, #000h, BackA
+                      68     ;             RET    
+                      69     
+0072 C0E0             70     Timer0_ISR: PUSH    ACC            
+0074 C0D0             71                 PUSH    PSW
+                      72     
+                      73                 ; Reload timer for next 5ms
+                      74                 ;default value is 0x0EC78
+                      75                 ;adjusting for cycle time test value of 0x0EC8C
+0076 C28C             76                 CLR     TR0            
+0078 758CEC           77                 MOV     TH0, #0ECh     
+007B 758A8C           78                 MOV     TL0, #08Ch     
+007E C28D             79                 CLR     TF0            
+0080 D28C             80                 SETB    TR0            
+                      81     
+                      82                 ; Increment 5ms counter
+0082 0D               83                 INC     R5            ; For main loop timing
+                      84     
+                      85                 ; Display multiplexing
+0083 EC               86                 MOV     A, R4          
+0084 B40003           87                 CJNE    A, #00h, Try_Pos1
+0087 EB               88                 MOV     A, R3          ; Display 10 minutes
+0088 8013             89                 SJMP    Output_Digit
+                      90     
+008A B40105           91     Try_Pos1:   CJNE    A, #01h, Try_Pos2
+008D EA               92                 MOV     A, R2          ; Display 1 minute
+008E 4410             93                 ORL     A, #10h        
+0090 800B             94                 SJMP    Output_Digit
+                      95     
+0092 B40205           96     Try_Pos2:   CJNE    A, #02h, Try_Pos3
+0095 E9               97                 MOV     A, R1          ; Display 10 seconds
+0096 4420             98                 ORL     A, #20h        
+0098 8003             99                 SJMP    Output_Digit
+                     100     
+009A E8              101     Try_Pos3:   MOV     A, R0          ; Display 1 second
+009B 4430            102                 ORL     A, #30h        
+                     103     
+009D                 104     Output_Digit:
+009D F590            105                 MOV     P1, A          
+                     106     
+                     107                 ; Update display position
+009F EC              108                 MOV     A, R4
+00A0 04              109                 INC     A              
+00A1 B40402          110                 CJNE    A, #04h, Save_Pos
+00A4 7400            111                 MOV     A, #00h        
+00A6 FC              112     Save_Pos:   MOV     R4, A         
+                     113     
+00A7 D0D0            114                 POP     PSW            
+00A9 D0E0            115                 POP     ACC
+00AB 32              116                 RETI
+                     117     
+                     118                 END
+A51 MACRO ASSEMBLER  STOPWATCHINIT                                                        02/19/2025 14:40:06 PAGE     3
+
+SYMBOL TABLE LISTING
+------ ----- -------
+
+
+N A M E             T Y P E  V A L U E   ATTRIBUTES
+
+ACC. . . . . . . .  D ADDR   00E0H   A   
+EA . . . . . . . .  B ADDR   00A8H.7 A   
+ET0. . . . . . . .  B ADDR   00A8H.1 A   
+MAIN . . . . . . .  C ADDR   0030H   A   
+MAINLOOP . . . . .  C ADDR   004EH   A   
+OUTPUT_DIGIT . . .  C ADDR   009DH   A   
+P1 . . . . . . . .  D ADDR   0090H   A   
+PSW. . . . . . . .  D ADDR   00D0H   A   
+SAVE_POS . . . . .  C ADDR   00A6H   A   
+SP . . . . . . . .  D ADDR   0081H   A   
+TF0. . . . . . . .  B ADDR   0088H.5 A   
+TH0. . . . . . . .  D ADDR   008CH   A   
+TIMER0_ISR . . . .  C ADDR   0072H   A   
+TL0. . . . . . . .  D ADDR   008AH   A   
+TMOD . . . . . . .  D ADDR   0089H   A   
+TR0. . . . . . . .  B ADDR   0088H.4 A   
+TRY_POS1 . . . . .  C ADDR   008AH   A   
+TRY_POS2 . . . . .  C ADDR   0092H   A   
+TRY_POS3 . . . . .  C ADDR   009AH   A   
+
+
+REGISTER BANK(S) USED: 0 
+
+
+ASSEMBLY COMPLETE.  0 WARNING(S), 0 ERROR(S)

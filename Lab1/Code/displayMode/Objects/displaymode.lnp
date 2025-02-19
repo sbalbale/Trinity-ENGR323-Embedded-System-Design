@@ -1,0 +1,3 @@
+".\Objects\displayMode.obj" 
+TO ".\Objects\displaymode" 
+PRINT(".\Listings\displaymode.m51")
