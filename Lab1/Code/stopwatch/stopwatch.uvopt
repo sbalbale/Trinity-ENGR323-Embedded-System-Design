@@ -132,7 +132,7 @@
         <SetRegEntry>
           <Number>0</Number>
           <Key>DLGDP51</Key>
-          <Name>(98=958,561,1301,855,1)(82=-1,-1,-1,-1,0)(83=1374,410,1582,525,1)(84=-1,-1,-1,-1,0)(85=-1,-1,-1,-1,0)(80=-1,-1,-1,-1,0)(91=1345,570,1555,845,1)(92=-1,-1,-1,-1,0)</Name>
+          <Name>(98=-658,570,-315,864,1)(82=-1,-1,-1,-1,0)(83=-288,430,-80,545,1)(84=-1,-1,-1,-1,0)(85=-1,-1,-1,-1,0)(80=-1,-1,-1,-1,0)(91=-289,579,-79,854,1)(92=-1,-1,-1,-1,0)</Name>
         </SetRegEntry>
       </TargetDriverDllRegistry>
       <Breakpoint/>
@@ -140,7 +140,7 @@
         <Mm>
           <WinNumber>1</WinNumber>
           <SubType>0</SubType>
-          <ItemText>0x0020</ItemText>
+          <ItemText>D:0x0020</ItemText>
           <AccSizeX>0</AccSizeX>
         </Mm>
       </MemoryWindow1>
