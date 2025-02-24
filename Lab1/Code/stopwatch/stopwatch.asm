@@ -37,7 +37,7 @@ MainLoop:   ACALL   MSECDelay     ; 1ms delay
             ; Always update clock first
             INC     30h           ; Count milliseconds
             MOV     A, 30h
-            CJNE    A, #E8h, Check_Stopwatch  ; Wait for 1000ms (232 decimal)
+            CJNE    A, #0E8h, Check_Stopwatch  ; Wait for 1000ms (232 decimal)
             MOV     30h, #00h     ; Reset MS counter
             
             ; Update clock seconds
