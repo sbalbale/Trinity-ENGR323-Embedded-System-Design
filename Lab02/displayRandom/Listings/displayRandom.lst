@@ -1,0 +1,216 @@
+A51 MACRO ASSEMBLER  DISPLAYRANDOM                                                        02/24/2025 15:03:48 PAGE     1
+
+
+MACRO ASSEMBLER A51 V8.2.7.0
+OBJECT MODULE PLACED IN .\Objects\displayRandom.obj
+ASSEMBLER INVOKED BY: C:\Keil_v5\C51\BIN\A51.EXE displayRandom.asm SET(SMALL) DEBUG PRINT(.\Listings\displayRandom.lst) 
+                      OBJECT(.\Objects\displayRandom.obj) EP
+
+LOC  OBJ            LINE     SOURCE
+
+0000                   1     ORG     0000h           
+0000 0130              2                 AJMP    MAIN           
+                       3     
+0013                   4                 ORG     0013h          ; External Interrupt 1 vector
+0013 018B              5                 AJMP    EXT1_ISR           
+                       6     
+000B                   7                 ORG     000Bh          ; Timer 0 vector
+000B 01B7              8                 AJMP    Timer0_ISR
+                       9     
+0030                  10                 ORG     0030h          
+0030 758130           11     MAIN:       MOV     SP, #30h       
+0033 758901           12                 MOV     TMOD, #01h     ; Timer 0, mode 1 (16-bit)
+                      13     
+                      14                 ; Timer 0 setup for 5ms
+0036 758CEC           15                 MOV     TH0, #0ECh     
+0039 758A78           16                 MOV     TL0, #078h     
+                      17     
+                      18     
+                      19                 ; Initialize registers 
+003C 7800             20                 MOV     R0, #00h      ; Display digits
+003E 7900             21                 MOV     R1, #00h
+0040 7A00             22                 MOV     R2, #00h
+0042 7B00             23                 MOV     R3, #00h
+0044 7C00             24                 MOV     R4, #00h      ; Display position
+0046 7D00             25                 MOV     R5, #00h      ; Animation counter
+0048 7E01             26                 MOV     R6, #01h      ; Random number seed
+004A 752000           27                 MOV     20h, #00h     ; Mode (0=Animation, 1=Random)
+                      28                 
+                      29                 ; Setup External Interrupt 1
+004D D28A             30                 SETB    IT1           ; Falling edge triggered
+004F D2AA             31                 SETB    EX1           ; Enable INT1
+                      32                 
+                      33                 ; Enable interrupts
+0051 D2A9             34                 SETB    ET0           ; Enable Timer 0 interrupt 
+0053 D2AF             35                 SETB    EA            ; Enable global interrupts
+0055 D28C             36                 SETB    TR0           ; Start Timer 0
+                      37     
+0057                  38     MainLoop:   ; Main program loop
+0057 E520             39                 MOV     A, 20h        ; Get current mode
+0059 70FC             40                 JNZ     MainLoop      ; If in random mode, just wait
+                      41                 
+                      42                 ; Animation sequence in mode 0
+005B ED               43                 MOV     A, R5
+005C 04               44                 INC     A
+005D B41412           45                 CJNE    A, #20, SaveCount ; Update every 100ms
+0060 7400             46                 MOV     A, #00h  
+                      47                 
+                      48                 ; Update animation pattern
+0062 E8               49                 MOV     A, R0
+0063 2411             50                 ADD     A, #11h
+0065 F8               51                 MOV     R0, A
+0066 E9               52                 MOV     A, R1  
+0067 2411             53                 ADD     A, #11h
+0069 F9               54                 MOV     R1, A
+006A EA               55                 MOV     A, R2
+006B 2411             56                 ADD     A, #11h
+006D FA               57                 MOV     R2, A
+A51 MACRO ASSEMBLER  DISPLAYRANDOM                                                        02/24/2025 15:03:48 PAGE     2
+
+006E EB               58                 MOV     A, R3
+006F 2411             59                 ADD     A, #11h
+0071 FB               60                 MOV     R3, A
+                      61                 
+0072 FD               62     SaveCount:  MOV     R5, A
+0073 80E2             63                 SJMP    MainLoop
+                      64     
+                      65     ; Improved random number generator
+0075 EE               66     GetRandom:  MOV     A, R6         ; Get current seed
+0076 F5F0             67                 MOV     B, A          ; Save copy in B
+0078 23               68                 RL      A             ; Rotate left
+0079 65F0             69                 XRL     A, B          ; XOR with original
+007B 2433             70                 ADD     A, #33h       ; Add non-zero constant
+007D FE               71                 MOV     R6, A         ; Save new seed
+007E 22               72                 RET
+                      73                 
+                      74     ; Convert hex to single decimal digit (1-9)
+                      75     ; Input: Hex number in A
+                      76     ; Output: BCD digit 1-9 in A
+007F                  77     Hex_to_Digit:
+007F C0F0             78                 PUSH    B           ; Save B register
+0081 75F009           79                 MOV     B, #09h     ; Maximum value
+0084 84               80                 DIV     AB          ; Divide by 9
+0085 E5F0             81                 MOV     A, B        ; Get remainder (0-8)
+0087 04               82                 INC     A           ; Add 1 to get 1-9
+0088 D0F0             83                 POP     B
+008A 22               84                 RET
+                      85     
+                      86     ; External Interrupt 1 - Switch to random mode
+008B C0E0             87     EXT1_ISR:   PUSH    ACC
+008D C0D0             88                 PUSH    PSW
+                      89                 
+008F 752001           90                 MOV     20h, #01h     ; Switch to random mode
+                      91     
+                      92                 ; Generate 4 random numbers (0-9)
+                      93                 
+                      94                 ; First digit (0-9)
+0092 1175             95                 ACALL   GetRandom     ; Get random seed in A
+0094 75F00A           96                 MOV     B, #10        ; Divide by 10 to get 0-9
+0097 84               97                 DIV     AB            ; A = quotient, B = remainder
+0098 A8F0             98                 MOV     R0, B         ; Store first digit
+                      99                 
+                     100                 ; Second digit 
+009A 1175            101                 ACALL   GetRandom
+009C 75F00A          102                 MOV     B, #10
+009F 84              103                 DIV     AB
+00A0 A9F0            104                 MOV     R1, B
+                     105                 
+                     106                 ; Third digit
+00A2 1175            107                 ACALL   GetRandom 
+00A4 75F00A          108                 MOV     B, #10
+00A7 84              109                 DIV     AB
+00A8 AAF0            110                 MOV     R2, B
+                     111                 
+                     112                 ; Fourth digit
+00AA 1175            113                 ACALL   GetRandom
+00AC 75F00A          114                 MOV     B, #10
+00AF 84              115                 DIV     AB
+00B0 ABF0            116                 MOV     R3, B
+                     117                 
+00B2 D0D0            118                 POP     PSW
+00B4 D0E0            119                 POP     ACC
+00B6 32              120                 RETI
+                     121     
+                     122     ; Timer 0 ISR - Display refresh
+00B7 C0E0            123     Timer0_ISR: PUSH    ACC            
+A51 MACRO ASSEMBLER  DISPLAYRANDOM                                                        02/24/2025 15:03:48 PAGE     3
+
+00B9 C0D0            124                 PUSH    PSW
+                     125     
+                     126                 ; Reload timer for 5ms
+00BB 758CEC          127                 MOV     TH0, #0ECh     
+00BE 758A78          128                 MOV     TL0, #078h     
+                     129                 
+                     130                 ; Get current position and display digit
+00C1 EC              131                 MOV     A, R4          
+00C2 B40003          132                 CJNE    A, #00h, Try_Pos1
+00C5 EB              133                 MOV     A, R3          ; Get first digit
+00C6 8013            134                 SJMP    Output_Digit
+                     135     
+00C8 B40105          136     Try_Pos1:   CJNE    A, #01h, Try_Pos2
+00CB EA              137                 MOV     A, R2          ; Get second digit
+00CC 4410            138                 ORL     A, #10h        ; Set position bit
+00CE 800B            139                 SJMP    Output_Digit
+                     140     
+00D0 B40205          141     Try_Pos2:   CJNE    A, #02h, Try_Pos3
+00D3 E9              142                 MOV     A, R1          ; Get third digit
+00D4 4420            143                 ORL     A, #20h        ; Set position bit
+00D6 8003            144                 SJMP    Output_Digit
+                     145     
+00D8 E8              146     Try_Pos3:   MOV     A, R0          ; Get fourth digit
+00D9 4430            147                 ORL     A, #30h        ; Set position bit
+                     148     
+00DB                 149     Output_Digit:
+00DB F590            150                 MOV     P1, A          ; Update display
+                     151     
+                     152                 ; Update display position
+00DD EC              153                 MOV     A, R4
+00DE 04              154                 INC     A              
+00DF B40402          155                 CJNE    A, #04h, Save_Pos
+00E2 7400            156                 MOV     A, #00h        
+00E4 FC              157     Save_Pos:   MOV     R4, A         
+                     158     
+00E5 D0D0            159                 POP     PSW            
+00E7 D0E0            160                 POP     ACC
+00E9 32              161                 RETI
+                     162     
+                     163                 END
+A51 MACRO ASSEMBLER  DISPLAYRANDOM                                                        02/24/2025 15:03:48 PAGE     4
+
+SYMBOL TABLE LISTING
+------ ----- -------
+
+
+N A M E             T Y P E  V A L U E   ATTRIBUTES
+
+ACC. . . . . . . .  D ADDR   00E0H   A   
+B. . . . . . . . .  D ADDR   00F0H   A   
+EA . . . . . . . .  B ADDR   00A8H.7 A   
+ET0. . . . . . . .  B ADDR   00A8H.1 A   
+EX1. . . . . . . .  B ADDR   00A8H.2 A   
+EXT1_ISR . . . . .  C ADDR   008BH   A   
+GETRANDOM. . . . .  C ADDR   0075H   A   
+HEX_TO_DIGIT . . .  C ADDR   007FH   A   
+IT1. . . . . . . .  B ADDR   0088H.2 A   
+MAIN . . . . . . .  C ADDR   0030H   A   
+MAINLOOP . . . . .  C ADDR   0057H   A   
+OUTPUT_DIGIT . . .  C ADDR   00DBH   A   
+P1 . . . . . . . .  D ADDR   0090H   A   
+PSW. . . . . . . .  D ADDR   00D0H   A   
+SAVECOUNT. . . . .  C ADDR   0072H   A   
+SAVE_POS . . . . .  C ADDR   00E4H   A   
+SP . . . . . . . .  D ADDR   0081H   A   
+TH0. . . . . . . .  D ADDR   008CH   A   
+TIMER0_ISR . . . .  C ADDR   00B7H   A   
+TL0. . . . . . . .  D ADDR   008AH   A   
+TMOD . . . . . . .  D ADDR   0089H   A   
+TR0. . . . . . . .  B ADDR   0088H.4 A   
+TRY_POS1 . . . . .  C ADDR   00C8H   A   
+TRY_POS2 . . . . .  C ADDR   00D0H   A   
+TRY_POS3 . . . . .  C ADDR   00D8H   A   
+
+
+REGISTER BANK(S) USED: 0 
+
+
+ASSEMBLY COMPLETE.  0 WARNING(S), 0 ERROR(S)

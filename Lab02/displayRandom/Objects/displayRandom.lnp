@@ -1,0 +1,3 @@
+".\Objects\displayRandom.obj" 
+TO ".\Objects\displayRandom" 
+PRINT(".\Listings\displayRandom.m51")
