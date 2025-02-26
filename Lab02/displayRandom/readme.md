@@ -221,3 +221,4 @@ SETB    EX1           ; Enable external interrupt 1
 
 SETB    ET0           ; Enable Timer 0 interrupt
 SETB    EA            ; Enable global interrupts
+```
