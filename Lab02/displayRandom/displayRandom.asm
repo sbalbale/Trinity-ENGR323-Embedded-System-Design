@@ -1,4 +1,4 @@
-            ORG     0000h           
+ORG     0000h           
             AJMP    MAIN           
 
             ORG     0013h          ; External Interrupt 1 vector
@@ -17,14 +17,14 @@ MAIN:       MOV     SP, #30h
             SETB    TR0            
 
             ; Initialize registers 
-            MOV     R0, #00h      
-            MOV     R1, #00h
-            MOV     R2, #00h
-            MOV     R3, #00h
-            MOV     R4, #00h      
-            MOV     R5, #00h      
-            MOV     R6, #55h      ; New seed value
-            MOV     R7, #32       ; More iterations for better entropy
+            MOV     R0, #01h      ; First digit - initialize with non-zero
+            MOV     R1, #02h      ; Second digit - initialize with different values
+            MOV     R2, #03h      ; Third digit  - for better animation effect
+            MOV     R3, #04h      ; Fourth digit
+            MOV     R4, #00h      ; Display position
+            MOV     R5, #00h      ; Animation speed counter
+            MOV     R6, #55h      ; Initial seed value
+            MOV     R7, #32       ; Seeding iterations
             
             ; Enhanced seeding process
 SeedLoop:   MOV     A, TL0        ; Get timer low byte
@@ -34,7 +34,7 @@ SeedLoop:   MOV     A, TL0        ; Get timer low byte
             XRL     A, #0A5h      ; XOR with different constant
             RRC     A             ; Rotate right
             ADD     A, R6         ; Add previous seed
-            XRL     A, #5Ah      ; XOR with another constant
+            XRL     A, #5Ah       ; XOR with another constant
             MOV     R6, A         ; Store new seed
             
             ; Additional mixing
@@ -46,39 +46,16 @@ SeedLoop:   MOV     A, TL0        ; Get timer low byte
             DJNZ    R7, SeedLoop
             
             MOV     R7, #0        
-            MOV     20h, #00h     
+            MOV     20h, #00h     ; Mode (0=Animation, 1=Display Random)
             
             ; Setup External Interrupt 1
-            SETB    IT1           
-            SETB    EX1           
+            SETB    IT1           ; Falling edge triggered
+            SETB    EX1           ; Enable external interrupt 1
             
-            SETB    ET0           
-            SETB    EA            
+            SETB    ET0           ; Enable Timer 0 interrupt
+            SETB    EA            ; Enable global interrupts
 
-MainLoop:   ; Rest of the main loop remains same
-            MOV     A, 20h        
-            JNZ     MainLoop      
-            
-            MOV     A, R5
-            INC     A
-            CJNE    A, #20, SaveCount
-            MOV     A, #00h  
-            
-            MOV     A, R0
-            ADD     A, #11h
-            MOV     R0, A
-            MOV     A, R1  
-            ADD     A, #11h
-            MOV     R1, A
-            MOV     A, R2
-            ADD     A, #11h
-            MOV     R2, A
-            MOV     A, R3
-            ADD     A, #11h
-            MOV     R3, A
-            
-SaveCount:  MOV     R5, A
-            SJMP    MainLoop
+MainLoop:   SJMP    MainLoop      ; Everything handled by interrupts
 
 ; Enhanced random number generator
 GetRandom:  MOV     A, R6         ; Get current seed
@@ -98,19 +75,19 @@ Skip1:      XRL     A, 21h        ; Mix with stored entropy
             INC     R7            
             RET
             
-; External Interrupt 1 - Switch to random mode
+; External Interrupt 1 - Generate random numbers
 EXT1_ISR:   PUSH    ACC
             PUSH    PSW
             
-            MOV     20h, #01h     ; Switch to random mode
+            MOV     20h, #01h     ; Switch to display mode
 
-            ; Generate first digit (1-9 to ensure number > 1000)
+            ; Generate first digit (1-9 to ensure non-zero first digit)
             ACALL   GetRandom     
             MOV     B, #9         ; Divide by 9 to get 0-8
             DIV     AB            
             MOV     A, B          ; Get remainder (0-8)
             INC     A             ; Add 1 to get 1-9
-            MOV     R0, A         ; Store first digit (1-9)
+            MOV     R0, A         ; Store first digit
             
             ; Generate remaining digits (0-9)
             ACALL   GetRandom     ; Second digit
@@ -132,7 +109,7 @@ EXT1_ISR:   PUSH    ACC
             POP     ACC
             RETI
 
-; Timer 0 ISR - Display refresh
+; Timer 0 ISR - Display refresh and animation
 Timer0_ISR: PUSH    ACC            
             PUSH    PSW
 
@@ -140,29 +117,70 @@ Timer0_ISR: PUSH    ACC
             MOV     TH0, #0ECh     
             MOV     TL0, #078h     
             
-            ; Get current position and display digit
+            ; Check mode
+            MOV     A, 20h
+            JNZ     Display_Random   ; If mode=1, show random numbers
+            
+            ; Slot machine animation
+            INC     R5
+            MOV     A, R5
+            CJNE    A, #03h, Skip_Anim_Update  ; Update animation every 3 ticks
+            MOV     R5, #00h
+            
+            ; Update all digits for animation with varying speeds
+            MOV     A, R0
+            INC     A
+            ANL     A, #0Fh        ; Keep 0-F range
+            JNZ     Save_Anim_Digit0
+            MOV     A, #01h        ; Avoid 0 to make it look active
+Save_Anim_Digit0:
+            MOV     R0, A
+            
+            MOV     A, R1
+            ADD     A, #03h        ; Different increment pattern
+            ANL     A, #0Fh
+            MOV     R1, A
+            
+            MOV     A, R2
+            ADD     A, #02h
+            ANL     A, #0Fh
+            MOV     R2, A
+            
+            MOV     A, R3
+            INC     A
+            ANL     A, #0Fh
+            JNZ     Save_Anim_Digit3
+            MOV     A, #01h
+Save_Anim_Digit3:
+            MOV     R3, A
+            
+Skip_Anim_Update:
+            ; Fall through to display digits
+
+Display_Random:
+            ; Select digit to display using position code in high nibble
             MOV     A, R4          
             CJNE    A, #00h, Try_Pos1
-            MOV     A, R0          ; Get leftmost digit (thousands)
-            SETB    P1.4           ; Enable digit 3
+            MOV     A, R0          ; First digit (thousands)
+            ORL     A, #00h        ; Position 0 code (00h)
             SJMP    Output_Digit
 
 Try_Pos1:   CJNE    A, #01h, Try_Pos2
-            MOV     A, R1          ; Get hundreds digit
-            SETB    P1.5           ; Enable digit 2
+            MOV     A, R1          ; Second digit (hundreds)
+            ORL     A, #10h        ; Position 1 code (10h)
             SJMP    Output_Digit
 
 Try_Pos2:   CJNE    A, #02h, Try_Pos3
-            MOV     A, R2          ; Get tens digit
-            SETB    P1.6           ; Enable digit 1
+            MOV     A, R2          ; Third digit (tens)
+            ORL     A, #20h        ; Position 2 code (20h)
             SJMP    Output_Digit
 
-Try_Pos3:   MOV     A, R3          ; Get ones digit
-            SETB    P1.7           ; Enable digit 0
+Try_Pos3:   MOV     A, R3          ; Fourth digit (ones)
+            ORL     A, #30h        ; Position 3 code (30h)
 
 Output_Digit:
-            ANL     A, #0Fh        ; Mask to keep only lower 4 bits
-            MOV     P1, A          ; Output digit value to lower 4 bits
+            ANL     A, #3Fh        ; Ensure upper 2 bits are clear
+            MOV     P1, A          ; Output digit value with position code
 
             ; Update display position
             MOV     A, R4
