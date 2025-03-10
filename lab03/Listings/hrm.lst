@@ -1,0 +1,513 @@
+A51 MACRO ASSEMBLER  HRM                                                                  03/10/2025 16:11:50 PAGE     1
+
+
+MACRO ASSEMBLER A51 V8.2.7.0
+OBJECT MODULE PLACED IN .\Objects\hrm.obj
+ASSEMBLER INVOKED BY: C:\Keil_v5\C51\BIN\A51.EXE hrm.asm SET(SMALL) DEBUG PRINT(.\Listings\hrm.lst) OBJECT(.\Objects\hrm
+                      .obj) EP
+
+LOC  OBJ            LINE     SOURCE
+
+0000                   1     ORG     0000h           
+0000 2100              2                 AJMP    MAIN           
+                       3     
+0013                   4                 ORG     0013h          ; External Interrupt 1 vector
+0013 21D0              5                 AJMP    EXT1_ISR           
+                       6     
+000B                   7                 ORG     000Bh          ; Timer 0 vector
+000B 217D              8                 AJMP    Timer0_ISR
+                       9     
+0100                  10                 ORG     0100h          
+0100 758130           11     MAIN:       MOV     SP, #30h       
+0103 758911           12                 MOV     TMOD, #11h     ; Timer 0: mode 1 (16-bit), Timer 1: mode 1 (16-bit)
+                      13     
+                      14                 ; Initialize heart rate registers (Bank 0)
+0106 C2D3             15                 CLR     RS0            ; Select Bank 0
+0108 C2D4             16                 CLR     RS1
+010A 7800             17                 MOV     R0, #00h      ; BPM ones digit
+010C 7900             18                 MOV     R1, #00h      ; BPM tens digit
+010E 7A00             19                 MOV     R2, #00h      ; BPM hundreds digit
+0110 7B00             20                 MOV     R3, #00h      ; Reserved (not used)
+0112 7C00             21                 MOV     R4, #00h      ; Display position
+0114 7D00             22                 MOV     R5, #00h      ; Counter for 5ms intervals
+0116 7E00             23                 MOV     R6, #00h      ; Display mode
+                      24                 
+                      25                 ; Heart rate calculation variables (Bank 1)
+0118 D2D3             26                 SETB    RS0            ; Select Bank 1
+011A C2D4             27                 CLR     RS1
+011C 7800             28                 MOV     R0, #00h      ; Last beat time (low byte)
+011E 7900             29                 MOV     R1, #00h      ; Last beat time (high byte)
+0120 7A00             30                 MOV     R2, #00h      ; Beat interval (low byte)
+0122 7B00             31                 MOV     R3, #00h      ; Beat interval (high byte)
+0124 7C00             32                 MOV     R4, #00h      ; Beat counter
+0126 7D00             33                 MOV     R5, #00h      ; Average interval (low byte)
+0128 7E00             34                 MOV     R6, #00h      ; Average interval (high byte)
+012A 7F00             35                 MOV     R7, #00h      ; Heart rate (BPM)
+                      36                 
+                      37                 ; Additional storage (Bank 2)
+012C C2D3             38                 CLR     RS0
+012E D2D4             39                 SETB    RS1
+0130 7800             40                 MOV     R0, #00h      ; Time without beats counter (low byte)
+0132 7900             41                 MOV     R1, #00h      ; Time without beats counter (high byte)
+                      42                 
+                      43                 ; Return to Bank 0 for main program
+0134 C2D3             44                 CLR     RS0
+0136 C2D4             45                 CLR     RS1
+                      46                 
+                      47                 ; Setup External Interrupt 1
+0138 D28A             48                 SETB    IT1           ; Falling edge triggered
+013A D2AA             49                 SETB    EX1           ; Enable INT1
+                      50                 
+                      51                 ; Timer 0 setup for 5ms display refresh
+013C 758CEC           52                 MOV     TH0, #0ECh     
+013F 758A78           53                 MOV     TL0, #078h
+0142 D2A9             54                 SETB    ET0           ; Enable Timer 0 interrupt
+                      55                 
+                      56                 ; Timer 1 setup as time counter
+0144 758D00           57                 MOV     TH1, #00h
+A51 MACRO ASSEMBLER  HRM                                                                  03/10/2025 16:11:50 PAGE     2
+
+0147 758B00           58                 MOV     TL1, #00h
+014A D28E             59                 SETB    TR1           ; Start Timer 1
+                      60                 
+014C D2AF             61                 SETB    EA            ; Enable global interrupts
+014E D28C             62                 SETB    TR0           ; Start Timer 0
+                      63     
+                      64     ; Main loop - everything handled by interrupts
+0150                  65     MainLoop:   
+                      66                 ; Check for inactive period (3 seconds without beats)
+                      67                 ; Switch to Bank 2 to check timeout counters
+0150 C2D3             68                 CLR     RS0
+0152 D2D4             69                 SETB    RS1
+0154 E9               70                 MOV     A, R1         ; Time without beats counter (high byte)
+0155 7004             71                 JNZ     Check_Reset
+0157 E8               72                 MOV     A, R0         ; Time without beats counter (low byte)
+0158 B4961C           73                 CJNE    A, #150, Skip_Reset  ; 150 × 20ms = 3 seconds
+                      74     
+015B                  75     Check_Reset:
+                      76                 ; Reset heart rate to 0
+                      77                 ; Update Bank 1 heart rate
+015B D2D3             78                 SETB    RS0
+015D C2D4             79                 CLR     RS1
+015F 7F00             80                 MOV     R7, #00h      ; Heart rate (BPM) = 0
+                      81                 
+                      82                 ; Update Bank 0 display digits
+0161 C2D3             83                 CLR     RS0
+0163 C2D4             84                 CLR     RS1
+0165 7800             85                 MOV     R0, #00h      ; BPM ones digit
+0167 7900             86                 MOV     R1, #00h      ; BPM tens digit
+0169 7A00             87                 MOV     R2, #00h      ; BPM hundreds digit
+                      88                 
+                      89                 ; Reset timeout counters in Bank 2
+016B C2D3             90                 CLR     RS0
+016D D2D4             91                 SETB    RS1
+016F 7800             92                 MOV     R0, #00h      ; Time without beats low byte
+0171 7900             93                 MOV     R1, #00h      ; Time without beats high byte
+                      94                 
+                      95                 ; Return to Bank 0
+0173 C2D3             96                 CLR     RS0
+0175 C2D4             97                 CLR     RS1
+                      98                 
+0177 C2D3             99     Skip_Reset: CLR     RS0            ; Ensure back to Bank 0
+0179 C2D4            100                 CLR     RS1
+017B 80D3            101                 SJMP    MainLoop
+                     102     
+017D C0E0            103     Timer0_ISR: PUSH    ACC
+017F C0D0            104                 PUSH    PSW
+                     105     
+                     106                 ; Reload timer for next 5ms
+0181 C28C            107                 CLR     TR0
+0183 758CEC          108                 MOV     TH0, #0ECh
+0186 758A78          109                 MOV     TL0, #078h
+0189 C28D            110                 CLR     TF0
+018B D28C            111                 SETB    TR0
+                     112     
+                     113                 ; Update heart rate calculation every 4 ticks (20ms)
+018D 0D              114                 INC     R5
+018E ED              115                 MOV     A, R5
+018F B40412          116                 CJNE    A, #04h, Display_Update
+0192 7D00            117                 MOV     R5, #00h
+                     118     
+                     119                 ; Update timeout counter if no beats (Bank 2)
+0194 C2D3            120                 CLR     RS0
+0196 D2D4            121                 SETB    RS1
+0198 E8              122                 MOV     A, R0         ; Time without beats (low byte)
+0199 2401            123                 ADD     A, #01h
+A51 MACRO ASSEMBLER  HRM                                                                  03/10/2025 16:11:50 PAGE     3
+
+019B F8              124                 MOV     R0, A
+019C E9              125                 MOV     A, R1         ; Time without beats (high byte)
+019D 3400            126                 ADDC    A, #00h
+019F F9              127                 MOV     R1, A
+                     128                 
+                     129                 ; Return to Bank 0 for display update
+01A0 C2D3            130                 CLR     RS0
+01A2 C2D4            131                 CLR     RS1
+                     132     
+01A4                 133     Display_Update:
+                     134                 ; Select digit position to display
+01A4 EC              135                 MOV     A, R4
+01A5 B40005          136                 CJNE    A, #00h, Try_Pos1
+01A8 EA              137                 MOV     A, R2          ; Hundreds digit
+01A9 4400            138                 ORL     A, #00h        ; Position 0
+01AB 8014            139                 SJMP    Output_Digit
+                     140     
+01AD B40105          141     Try_Pos1:   CJNE    A, #01h, Try_Pos2
+01B0 E9              142                 MOV     A, R1          ; Tens digit
+01B1 4410            143                 ORL     A, #10h        ; Position 1
+01B3 800C            144                 SJMP    Output_Digit
+                     145     
+01B5 B40205          146     Try_Pos2:   CJNE    A, #02h, Try_Pos3
+01B8 E8              147                 MOV     A, R0          ; Ones digit
+01B9 4420            148                 ORL     A, #20h        ; Position 2
+01BB 8004            149                 SJMP    Output_Digit
+                     150     
+01BD 740B            151     Try_Pos3:   MOV     A, #0Bh        ; Display 'b' for BPM
+01BF 4430            152                 ORL     A, #30h        ; Position 3
+                     153     
+01C1                 154     Output_Digit:
+01C1 F590            155                 MOV     P1, A          ; Output to display
+                     156     
+                     157                 ; Update display position for next time
+01C3 EC              158                 MOV     A, R4
+01C4 04              159                 INC     A
+01C5 B40402          160                 CJNE    A, #04h, Save_Pos
+01C8 7400            161                 MOV     A, #00h
+01CA FC              162     Save_Pos:   MOV     R4, A
+                     163     
+01CB D0D0            164                 POP     PSW
+01CD D0E0            165                 POP     ACC
+01CF 32              166                 RETI
+                     167     
+                     168     ; External Interrupt 1 ISR - Heartbeat detected
+01D0 C0E0            169     EXT1_ISR:   PUSH    ACC
+01D2 C0D0            170                 PUSH    PSW
+01D4 C0F0            171                 PUSH    B
+                     172                 
+                     173                 ; Reset timeout counter (Bank 2)
+01D6 C2D3            174                 CLR     RS0
+01D8 D2D4            175                 SETB    RS1
+01DA 7800            176                 MOV     R0, #00h      ; Time without beats (low byte)
+01DC 7900            177                 MOV     R1, #00h      ; Time without beats (high byte)
+                     178                 
+                     179                 ; Switch to Bank 1 for heart rate calculations
+01DE D2D3            180                 SETB    RS0
+01E0 C2D4            181                 CLR     RS1
+                     182                 
+                     183                 ; Increment beat counter
+01E2 0C              184                 INC     R4            ; Beat counter
+                     185                 
+                     186                 ; Get current time from Timer 1
+01E3 E58B            187                 MOV     A, TL1
+01E5 858DF0          188                 MOV     B, TH1
+                     189                 
+A51 MACRO ASSEMBLER  HRM                                                                  03/10/2025 16:11:50 PAGE     4
+
+                     190                 ; Calculate interval since last beat
+01E8 C3              191                 CLR     C
+01E9 98              192                 SUBB    A, R0         ; Subtract last beat time (low byte)
+01EA FA              193                 MOV     R2, A         ; Store interval low byte
+01EB E5F0            194                 MOV     A, B
+01ED 99              195                 SUBB    A, R1         ; Subtract last beat time (high byte)
+01EE FB              196                 MOV     R3, A         ; Store interval high byte
+                     197                 
+                     198                 ; Save current time as last beat time
+01EF A88B            199                 MOV     R0, TL1
+01F1 A98D            200                 MOV     R1, TH1
+                     201                 
+                     202                 ; Only use intervals if beat counter > 1 (need at least 2 beats)
+01F3 EC              203                 MOV     A, R4         ; Beat counter
+01F4 B40206          204                 CJNE    A, #02h, Skip_Calc
+                     205                 
+                     206                 ; For second beat, initialize average with first interval
+01F7 EA              207                 MOV     A, R2         ; Beat interval (low byte)
+01F8 FD              208                 MOV     R5, A         ; Average interval low byte
+01F9 EB              209                 MOV     A, R3         ; Beat interval (high byte)
+01FA FE              210                 MOV     R6, A         ; Average interval high byte
+01FB 8000            211                 SJMP    Skip_Calc
+                     212                 
+01FD                 213     Skip_Calc:  
+01FD B40202          214                 CJNE    A, #02h, Calculate_Average
+0200 804A            215                 SJMP    Calculate_Rate
+                     216                 
+0202                 217     Calculate_Average:
+                     218                 ; Switch to Bank 3 for temporary calculations
+0202 D2D3            219                 SETB    RS0
+0204 D2D4            220                 SETB    RS1
+                     221                 
+                     222                 ; For subsequent beats, update running average (75% old, 25% new)
+                     223                 ; Shift average right twice (divide by 4)
+                     224                 ; Copy values from Bank 1 to work with
+0206 C2D4            225                 CLR     RS1           ; Select Bank 1
+0208 ED              226                 MOV     A, R5         ; Load average interval (low byte)
+0209 D2D4            227                 SETB    RS1           ; Back to Bank 3
+                     228                 
+020B C3              229                 CLR     C
+020C 13              230                 RRC     A
+020D C3              231                 CLR     C
+020E 13              232                 RRC     A
+020F F8              233                 MOV     R0, A         ; Bank 3 R0 = average/4 (low byte)
+                     234                 
+0210 C2D4            235                 CLR     RS1           ; Select Bank 1
+0212 EE              236                 MOV     A, R6         ; Load average interval (high byte)
+0213 D2D4            237                 SETB    RS1           ; Back to Bank 3
+                     238                 
+0215 13              239                 RRC     A
+0216 13              240                 RRC     A
+0217 F9              241                 MOV     R1, A         ; Bank 3 R1 = average/4 (high byte)
+                     242                 
+                     243                 ; Shift average right once more (divide by 2)
+0218 C2D4            244                 CLR     RS1           ; Select Bank 1
+021A ED              245                 MOV     A, R5         ; Load average interval (low byte)
+021B D2D4            246                 SETB    RS1           ; Back to Bank 3
+                     247                 
+021D C3              248                 CLR     C
+021E 13              249                 RRC     A
+021F FA              250                 MOV     R2, A         ; Bank 3 R2 = average/2 (low byte)
+                     251                 
+0220 C2D4            252                 CLR     RS1           ; Select Bank 1
+0222 EE              253                 MOV     A, R6         ; Load average interval (high byte)
+0223 D2D4            254                 SETB    RS1           ; Back to Bank 3
+                     255                 
+A51 MACRO ASSEMBLER  HRM                                                                  03/10/2025 16:11:50 PAGE     5
+
+0225 13              256                 RRC     A
+0226 FB              257                 MOV     R3, A         ; Bank 3 R3 = average/2 (high byte)
+                     258                 
+                     259                 ; New interval / 4
+0227 C2D4            260                 CLR     RS1           ; Select Bank 1
+0229 EA              261                 MOV     A, R2         ; Load beat interval (low byte)
+022A D2D4            262                 SETB    RS1           ; Back to Bank 3
+                     263                 
+022C C3              264                 CLR     C
+022D 13              265                 RRC     A
+022E C3              266                 CLR     C
+022F 13              267                 RRC     A
+0230 FC              268                 MOV     R4, A         ; Bank 3 R4 = interval/4 (low byte)
+                     269                 
+0231 C2D4            270                 CLR     RS1           ; Select Bank 1
+0233 EB              271                 MOV     A, R3         ; Load beat interval (high byte)
+0234 D2D4            272                 SETB    RS1           ; Back to Bank 3
+                     273                 
+0236 13              274                 RRC     A
+0237 13              275                 RRC     A
+0238 FD              276                 MOV     R5, A         ; Bank 3 R5 = interval/4 (high byte)
+                     277                 
+                     278                 ; Calculate new average = 3/4*old + 1/4*new
+                     279                 ; = old/2 + old/4 + new/4
+0239 C3              280                 CLR     C
+023A E8              281                 MOV     A, R0         ; A = old/4 (low byte)
+023B 2A              282                 ADD     A, R2         ; Add old/2 (low byte)
+023C 2C              283                 ADD     A, R4         ; Add new/4 (low byte)
+023D FE              284                 MOV     R6, A         ; Bank 3 R6 = new average (low byte)
+                     285                 
+023E E9              286                 MOV     A, R1         ; A = old/4 (high byte)
+023F 3B              287                 ADDC    A, R3         ; Add old/2 (high byte)
+0240 3D              288                 ADDC    A, R5         ; Add new/4 (high byte)
+0241 FF              289                 MOV     R7, A         ; Bank 3 R7 = new average (high byte)
+                     290                 
+                     291                 ; Copy results back to Bank 1
+0242 EE              292                 MOV     A, R6         ; Get new average (low byte)
+0243 C2D4            293                 CLR     RS1           ; Select Bank 1
+0245 FD              294                 MOV     R5, A         ; Store in Bank 1 R5
+                     295                 
+0246 D2D4            296                 SETB    RS1           ; Select Bank 3
+0248 EF              297                 MOV     A, R7         ; Get new average (high byte)
+0249 C2D4            298                 CLR     RS1           ; Select Bank 1
+024B FE              299                 MOV     R6, A         ; Store in Bank 1 R6
+                     300     
+024C                 301     Calculate_Rate:
+                     302                 ; Get average interval or current interval if no average yet
+024C EC              303                 MOV     A, R4         ; Beat counter
+024D B40110          304                 CJNE    A, #01h, Use_Average
+                     305                 
+                     306                 ; Switch to Bank 3 for calculations
+0250 D2D4            307                 SETB    RS1
+                     308                 
+                     309                 ; Use current interval for first beat
+0252 C2D4            310                 CLR     RS1           ; Select Bank 1
+0254 EA              311                 MOV     A, R2         ; Get beat interval (low byte)
+0255 D2D4            312                 SETB    RS1           ; Select Bank 3
+0257 F8              313                 MOV     R0, A         ; Store in Bank 3 R0
+                     314                 
+0258 C2D4            315                 CLR     RS1           ; Select Bank 1
+025A EB              316                 MOV     A, R3         ; Get beat interval (high byte)
+025B D2D4            317                 SETB    RS1           ; Select Bank 3
+025D F9              318                 MOV     R1, A         ; Store in Bank 3 R1
+                     319                 
+025E 800E            320                 SJMP    Calc_BPM
+                     321                 
+A51 MACRO ASSEMBLER  HRM                                                                  03/10/2025 16:11:50 PAGE     6
+
+0260                 322     Use_Average:
+                     323                 ; Switch to Bank 3 for calculations
+0260 D2D4            324                 SETB    RS1
+                     325                 
+                     326                 ; Use average interval
+0262 C2D4            327                 CLR     RS1           ; Select Bank 1
+0264 ED              328                 MOV     A, R5         ; Get average interval (low byte)
+0265 D2D4            329                 SETB    RS1           ; Select Bank 3
+0267 F8              330                 MOV     R0, A         ; Store in Bank 3 R0
+                     331                 
+0268 C2D4            332                 CLR     RS1           ; Select Bank 1
+026A EE              333                 MOV     A, R6         ; Get average interval (high byte)
+026B D2D4            334                 SETB    RS1           ; Select Bank 3
+026D F9              335                 MOV     R1, A         ; Store in Bank 3 R1
+                     336                 
+026E                 337     Calc_BPM:
+                     338                 ; Check if interval is too small (< 300ms)
+026E E9              339                 MOV     A, R1         ; Check high byte first (Bank 3)
+026F 7008            340                 JNZ     Valid_Interval
+0271 E8              341                 MOV     A, R0         ; Check low byte (Bank 3)
+0272 B42402          342                 CJNE    A, #36, Check_Small  ; 36 × 8.33ms ≈ 300ms
+0275 5002            343                 JNC     Valid_Interval
+                     344                 
+0277                 345     Check_Small:
+                     346                 ; Interval too small, likely noise - ignore
+0277 804F            347                 SJMP    Exit_ISR
+                     348                 
+0279                 349     Valid_Interval:
+                     350                 ; Check if interval is too large (> 2000ms)
+0279 E9              351                 MOV     A, R1         ; Check high byte (Bank 3)
+027A B40108          352                 CJNE    A, #01h, Check_Large
+027D 400F            353                 JC      Calculate_BPM  ; If < 256, continue
+027F E8              354                 MOV     A, R0         ; Check low byte (Bank 3)
+0280 B4F405          355                 CJNE    A, #0F4h, Check_Large2  ; 1*256 + 244 × 8.33ms ≈ 2000ms
+0283 4009            356                 JC      Calculate_BPM
+                     357                 
+0285                 358     Check_Large: 
+0285 E9              359                 MOV     A, R1         ; Check high byte (Bank 3)
+0286 6006            360                 JZ      Calculate_BPM  ; If high byte is 0, continue
+                     361                 
+0288                 362     Check_Large2:
+                     363                 ; Interval too large, set BPM to minimum (30)
+0288 C2D4            364                 CLR     RS1           ; Select Bank 1
+028A 7F1E            365                 MOV     R7, #30       ; Set BPM = 30
+028C 8025            366                 SJMP    Update_Display
+                     367                 
+028E                 368     Calculate_BPM:
+                     369                 ; Use Bank 3 for calculations (we're already in Bank 3)
+                     370                 
+                     371                 ; Simplified calculation for demo purposes
+028E E8              372                 MOV     A, R0         ; Get interval low byte (Bank 3)
+028F 75F0C8          373                 MOV     B, #200
+0292 84              374                 DIV     AB            ; A = Interval/200
+0293 F5F0            375                 MOV     B, A          ; B = Interval/200
+                     376                 
+0295 743C            377                 MOV     A, #60
+0297 A4              378                 MUL     AB            ; A = 60 * (Interval/200)
+                     379                 
+                     380                 ; Handle result being too small
+0298 600F            381                 JZ      Min_Rate
+029A B41E02          382                 CJNE    A, #30, Check_Min_Rate
+029D 400A            383                 JC      Min_Rate
+                     384                 
+029F                 385     Check_Min_Rate:
+                     386                 ; Handle result being too large
+029F B4DC02          387                 CJNE    A, #220, Check_Max_Rate
+A51 MACRO ASSEMBLER  HRM                                                                  03/10/2025 16:11:50 PAGE     7
+
+02A2 500B            388                 JNC     Max_Rate
+                     389                 
+02A4                 390     Check_Max_Rate:
+                     391                 ; Valid BPM, store it
+02A4 C2D4            392                 CLR     RS1           ; Select Bank 1
+02A6 FF              393                 MOV     R7, A         ; Store BPM in Bank 1 R7
+02A7 800A            394                 SJMP    Update_Display
+                     395                 
+02A9                 396     Min_Rate:   
+02A9 C2D4            397                 CLR     RS1           ; Select Bank 1
+02AB 7F1E            398                 MOV     R7, #30      ; Minimum BPM = 30
+02AD 8004            399                 SJMP    Update_Display
+                     400                 
+02AF                 401     Max_Rate:
+02AF C2D4            402                 CLR     RS1           ; Select Bank 1
+02B1 7FDC            403                 MOV     R7, #220     ; Maximum BPM = 220
+                     404                 
+02B3                 405     Update_Display:
+                     406                 ; Convert BPM to decimal digits
+02B3 C2D4            407                 CLR     RS1            ; Select Bank 1
+02B5 EF              408                 MOV     A, R7          ; Get heart rate
+                     409                 
+                     410                 ; Return to Bank 0 for display update
+02B6 C2D3            411                 CLR     RS0
+02B8 C2D4            412                 CLR     RS1
+                     413                 
+02BA 75F064          414                 MOV     B, #100
+02BD 84              415                 DIV     AB
+02BE FA              416                 MOV     R2, A         ; Hundreds digit
+                     417                 
+02BF E5F0            418                 MOV     A, B
+02C1 75F00A          419                 MOV     B, #10
+02C4 84              420                 DIV     AB
+02C5 F9              421                 MOV     R1, A         ; Tens digit
+                     422                 
+02C6 A8F0            423                 MOV     R0, B         ; Ones digit
+                     424     
+02C8 D0F0            425     Exit_ISR:   POP     B
+02CA D0D0            426                 POP     PSW
+02CC D0E0            427                 POP     ACC
+02CE 32              428                 RETI
+                     429     
+                     430                 END
+A51 MACRO ASSEMBLER  HRM                                                                  03/10/2025 16:11:50 PAGE     8
+
+SYMBOL TABLE LISTING
+------ ----- -------
+
+
+N A M E             T Y P E  V A L U E   ATTRIBUTES
+
+ACC. . . . . . . .  D ADDR   00E0H   A   
+B. . . . . . . . .  D ADDR   00F0H   A   
+CALCULATE_AVERAGE.  C ADDR   0202H   A   
+CALCULATE_BPM. . .  C ADDR   028EH   A   
+CALCULATE_RATE . .  C ADDR   024CH   A   
+CALC_BPM . . . . .  C ADDR   026EH   A   
+CHECK_LARGE. . . .  C ADDR   0285H   A   
+CHECK_LARGE2 . . .  C ADDR   0288H   A   
+CHECK_MAX_RATE . .  C ADDR   02A4H   A   
+CHECK_MIN_RATE . .  C ADDR   029FH   A   
+CHECK_RESET. . . .  C ADDR   015BH   A   
+CHECK_SMALL. . . .  C ADDR   0277H   A   
+DISPLAY_UPDATE . .  C ADDR   01A4H   A   
+EA . . . . . . . .  B ADDR   00A8H.7 A   
+ET0. . . . . . . .  B ADDR   00A8H.1 A   
+EX1. . . . . . . .  B ADDR   00A8H.2 A   
+EXIT_ISR . . . . .  C ADDR   02C8H   A   
+EXT1_ISR . . . . .  C ADDR   01D0H   A   
+IT1. . . . . . . .  B ADDR   0088H.2 A   
+MAIN . . . . . . .  C ADDR   0100H   A   
+MAINLOOP . . . . .  C ADDR   0150H   A   
+MAX_RATE . . . . .  C ADDR   02AFH   A   
+MIN_RATE . . . . .  C ADDR   02A9H   A   
+OUTPUT_DIGIT . . .  C ADDR   01C1H   A   
+P1 . . . . . . . .  D ADDR   0090H   A   
+PSW. . . . . . . .  D ADDR   00D0H   A   
+RS0. . . . . . . .  B ADDR   00D0H.3 A   
+RS1. . . . . . . .  B ADDR   00D0H.4 A   
+SAVE_POS . . . . .  C ADDR   01CAH   A   
+SKIP_CALC. . . . .  C ADDR   01FDH   A   
+SKIP_RESET . . . .  C ADDR   0177H   A   
+SP . . . . . . . .  D ADDR   0081H   A   
+TF0. . . . . . . .  B ADDR   0088H.5 A   
+TH0. . . . . . . .  D ADDR   008CH   A   
+TH1. . . . . . . .  D ADDR   008DH   A   
+TIMER0_ISR . . . .  C ADDR   017DH   A   
+TL0. . . . . . . .  D ADDR   008AH   A   
+TL1. . . . . . . .  D ADDR   008BH   A   
+TMOD . . . . . . .  D ADDR   0089H   A   
+TR0. . . . . . . .  B ADDR   0088H.4 A   
+TR1. . . . . . . .  B ADDR   0088H.6 A   
+TRY_POS1 . . . . .  C ADDR   01ADH   A   
+TRY_POS2 . . . . .  C ADDR   01B5H   A   
+TRY_POS3 . . . . .  C ADDR   01BDH   A   
+UPDATE_DISPLAY . .  C ADDR   02B3H   A   
+USE_AVERAGE. . . .  C ADDR   0260H   A   
+VALID_INTERVAL . .  C ADDR   0279H   A   
+
+
+REGISTER BANK(S) USED: 0 
+
+
+ASSEMBLY COMPLETE.  0 WARNING(S), 0 ERROR(S)
