@@ -26,9 +26,16 @@ MAIN:       MOV     SP, #30h
             MOV     23h, #01h     ; First calculation flag (1=first press)
             MOV     24h, #00h     ; Status flags
             
+            ; Setup P3.3 as input for INT1
+            SETB    P3.3          ; Set P3.3 (INT1) as input with pull-up
+            
             ; Setup External Interrupt 1
             SETB    IT1           ; Falling edge triggered
             SETB    EX1           ; Enable INT1
+            CLR     IE1           ; Clear any pending interrupt flag
+            
+            ; Set interrupt priority (optional)
+            SETB    IP.2          ; Give INT1 high priority
             
             ; Timer 0 setup for 5ms (12 MHz clock)
             MOV     TH0, #0ECh     
@@ -54,6 +61,7 @@ Timer0_ISR: PUSH    ACC
             MOV     TH0, #0ECh     
             MOV     TL0, #078h     
             SETB    TR0            
+
 
             ; Increment time counter if not the first press
             MOV     A, 23h
@@ -111,6 +119,12 @@ EXT1_ISR:   PUSH    ACC
             PUSH    B
             PUSH    DPH
             PUSH    DPL
+            
+            CLR     IE1           ; Clear the interrupt flag
+            
+            ; Add a short debounce delay
+            MOV     B, #50
+EXT1_Delay: DJNZ    B, EXT1_Delay
 
             ; Check if this is the first press
             MOV     A, 23h
@@ -121,7 +135,7 @@ EXT1_ISR:   PUSH    ACC
             MOV     20h, #00h     ; Reset counter low byte
             MOV     21h, #00h     ; Reset counter middle byte
             MOV     22h, #00h     ; Reset counter high byte
-            LJMP    EXT1_Exit
+            LJMP    EXT1_Exit     ; Use SJMP instead of LJMP for short jump
 
 Calculate_CPM:
             ; Calculate CPM = 12000 / timer_count
@@ -136,7 +150,7 @@ Calculate_CPM:
             MOV     R2, #9        ; Hundreds
             MOV     R1, #9        ; Tens
             MOV     R0, #9        ; Units
-            LJMP    Reset_Timer
+            LJMP    Reset_Timer   ; Use SJMP instead of LJMP
 
 Valid_Count:
             ; Check if count is too large (> 12000 ticks = 60 seconds)
@@ -245,8 +259,20 @@ Reset_Timer:
             MOV     20h, #00h
             MOV     21h, #00h
             MOV     22h, #00h
+            MOV     23h, #01h     ; CRITICAL FIX: Reset first calculation flag for next measurement
+            
+            ; Ensure External Interrupt 1 is properly enabled
+            SETB    IT1           ; Falling edge triggered
+            SETB    EX1           ; Enable INT1
+            CLR     IE1           ; Clear any pending interrupt
+            SETB    EA            ; Ensure global interrupts are enabled
 
 EXT1_Exit:  
+            ; Add a small delay before returning to avoid switch bouncing
+            MOV     B, #200       ; Longer debounce delay after processing
+EXT1_Exit_Delay: 
+            DJNZ    B, EXT1_Exit_Delay
+            
             POP     DPL
             POP     DPH
             POP     B

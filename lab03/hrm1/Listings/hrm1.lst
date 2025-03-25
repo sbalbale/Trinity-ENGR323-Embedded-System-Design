@@ -1,4 +1,4 @@
-A51 MACRO ASSEMBLER  HRM1                                                                 03/25/2025 15:16:32 PAGE     1
+A51 MACRO ASSEMBLER  HRM1                                                                 03/25/2025 15:52:54 PAGE     1
 
 
 MACRO ASSEMBLER A51 V8.2.7.0
@@ -12,10 +12,10 @@ LOC  OBJ            LINE     SOURCE
 0000 2100              2                 AJMP    MAIN           
                        3     
 0013                   4                 ORG     0013h          ; External Interrupt 1 vector
-0013 2184              5                 AJMP    EXT1_ISR           
+0013 218A              5                 AJMP    EXT1_ISR           
                        6     
 000B                   7                 ORG     000Bh          ; Timer 0 vector
-000B 2139              8                 AJMP    Timer0_ISR
+000B 213F              8                 AJMP    Timer0_ISR
                        9     
 0100                  10                 ORG     0100h          
 0100 758130           11     MAIN:       MOV     SP, #30h       
@@ -36,244 +36,271 @@ LOC  OBJ            LINE     SOURCE
 0119 752301           26                 MOV     23h, #01h     ; First calculation flag (1=first press)
 011C 752400           27                 MOV     24h, #00h     ; Status flags
                       28                 
-                      29                 ; Setup External Interrupt 1
-011F D28A             30                 SETB    IT1           ; Falling edge triggered
-0121 D2AA             31                 SETB    EX1           ; Enable INT1
-                      32                 
-                      33                 ; Timer 0 setup for 5ms (12 MHz clock)
-0123 758CEC           34                 MOV     TH0, #0ECh     
-0126 758A78           35                 MOV     TL0, #078h
-0129 D2A9             36                 SETB    ET0           ; Enable Timer 0
-012B D2AF             37                 SETB    EA            ; Enable global interrupts
-012D D28C             38                 SETB    TR0           ; Start Timer 0
-                      39     
-                      40                 ; Initial display shows "0000"
-012F 7800             41                 MOV     R0, #00h
-0131 7900             42                 MOV     R1, #00h
-0133 7A00             43                 MOV     R2, #00h
-0135 7B00             44                 MOV     R3, #00h
-                      45     
-0137 80FE             46     MainLoop:   SJMP    MainLoop      ; Everything handled by interrupts
-                      47     
-                      48     ; Timer 0 ISR - Handles display refresh and time counting
-0139 C0E0             49     Timer0_ISR: PUSH    ACC            
-013B C0D0             50                 PUSH    PSW
-                      51     
-                      52                 ; Reload timer for next 5ms
-013D C28C             53                 CLR     TR0            
-013F 758CEC           54                 MOV     TH0, #0ECh     
-0142 758A78           55                 MOV     TL0, #078h     
-0145 D28C             56                 SETB    TR0            
-                      57     
-A51 MACRO ASSEMBLER  HRM1                                                                 03/25/2025 15:16:32 PAGE     2
+                      29                 ; Setup P3.3 as input for INT1
+011F D2B3             30                 SETB    P3.3          ; Set P3.3 (INT1) as input with pull-up
+                      31                 
+                      32                 ; Setup External Interrupt 1
+0121 D28A             33                 SETB    IT1           ; Falling edge triggered
+0123 D2AA             34                 SETB    EX1           ; Enable INT1
+0125 C28B             35                 CLR     IE1           ; Clear any pending interrupt flag
+                      36                 
+                      37                 ; Set interrupt priority (optional)
+0127 D2BA             38                 SETB    IP.2          ; Give INT1 high priority
+                      39                 
+                      40                 ; Timer 0 setup for 5ms (12 MHz clock)
+0129 758CEC           41                 MOV     TH0, #0ECh     
+012C 758A78           42                 MOV     TL0, #078h
+012F D2A9             43                 SETB    ET0           ; Enable Timer 0
+0131 D2AF             44                 SETB    EA            ; Enable global interrupts
+0133 D28C             45                 SETB    TR0           ; Start Timer 0
+                      46     
+                      47                 ; Initial display shows "0000"
+0135 7800             48                 MOV     R0, #00h
+0137 7900             49                 MOV     R1, #00h
+0139 7A00             50                 MOV     R2, #00h
+013B 7B00             51                 MOV     R3, #00h
+                      52     
+013D 80FE             53     MainLoop:   SJMP    MainLoop      ; Everything handled by interrupts
+                      54     
+                      55     ; Timer 0 ISR - Handles display refresh and time counting
+013F C0E0             56     Timer0_ISR: PUSH    ACC            
+0141 C0D0             57                 PUSH    PSW
+A51 MACRO ASSEMBLER  HRM1                                                                 03/25/2025 15:52:54 PAGE     2
 
-                      58                 ; Increment time counter if not the first press
-0147 E523             59                 MOV     A, 23h
-0149 700E             60                 JNZ     Skip_Count     ; Skip if it's the first press
-                      61     
-                      62                 ; Increment 24-bit counter (22h:21h:20h)
-014B 0520             63                 INC     20h
-014D E520             64                 MOV     A, 20h
-014F 7002             65                 JNZ     Skip_Inc1
-0151 0521             66                 INC     21h            ; Increment middle byte on overflow
-0153 E521             67     Skip_Inc1:  MOV     A, 21h
-0155 7002             68                 JNZ     Skip_Inc2
-0157 0522             69                 INC     22h            ; Increment high byte on overflow
-0159                  70     Skip_Inc2:
-                      71     
-0159                  72     Skip_Count:
-                      73                 ; Handle display multiplexing
-0159 EC               74                 MOV     A, R4          ; Get current display position
-                      75                 
-015A B40005           76                 CJNE    A, #00h, Pos1
-015D E8               77                 MOV     A, R0          ; Units digit
-015E 4430             78                 ORL     A, #30h        ; Position 3 code (rightmost)
-0160 8013             79                 SJMP    Output_Digit
-                      80     
-0162 B40105           81     Pos1:       CJNE    A, #01h, Pos2
-0165 E9               82                 MOV     A, R1          ; Tens digit
-0166 4420             83                 ORL     A, #20h        ; Position 2 code
-0168 800B             84                 SJMP    Output_Digit
-                      85     
-016A B40205           86     Pos2:       CJNE    A, #02h, Pos3
-016D EA               87                 MOV     A, R2          ; Hundreds digit
-016E 4410             88                 ORL     A, #10h        ; Position 1 code
-0170 8003             89                 SJMP    Output_Digit
-                      90     
-0172 EB               91     Pos3:       MOV     A, R3          ; Thousands digit
-0173 4400             92                 ORL     A, #00h        ; Position 0 code (leftmost)
+                      58     
+                      59                 ; Reload timer for next 5ms
+0143 C28C             60                 CLR     TR0            
+0145 758CEC           61                 MOV     TH0, #0ECh     
+0148 758A78           62                 MOV     TL0, #078h     
+014B D28C             63                 SETB    TR0            
+                      64     
+                      65     
+                      66                 ; Increment time counter if not the first press
+014D E523             67                 MOV     A, 23h
+014F 700E             68                 JNZ     Skip_Count     ; Skip if it's the first press
+                      69     
+                      70                 ; Increment 24-bit counter (22h:21h:20h)
+0151 0520             71                 INC     20h
+0153 E520             72                 MOV     A, 20h
+0155 7002             73                 JNZ     Skip_Inc1
+0157 0521             74                 INC     21h            ; Increment middle byte on overflow
+0159 E521             75     Skip_Inc1:  MOV     A, 21h
+015B 7002             76                 JNZ     Skip_Inc2
+015D 0522             77                 INC     22h            ; Increment high byte on overflow
+015F                  78     Skip_Inc2:
+                      79     
+015F                  80     Skip_Count:
+                      81                 ; Handle display multiplexing
+015F EC               82                 MOV     A, R4          ; Get current display position
+                      83                 
+0160 B40005           84                 CJNE    A, #00h, Pos1
+0163 E8               85                 MOV     A, R0          ; Units digit
+0164 4430             86                 ORL     A, #30h        ; Position 3 code (rightmost)
+0166 8013             87                 SJMP    Output_Digit
+                      88     
+0168 B40105           89     Pos1:       CJNE    A, #01h, Pos2
+016B E9               90                 MOV     A, R1          ; Tens digit
+016C 4420             91                 ORL     A, #20h        ; Position 2 code
+016E 800B             92                 SJMP    Output_Digit
                       93     
-0175                  94     Output_Digit:
-0175 F590             95                 MOV     P1, A          ; Output to display
-                      96     
-                      97                 ; Update display position
-0177 EC               98                 MOV     A, R4
-0178 04               99                 INC     A              
-0179 B40402          100                 CJNE    A, #04h, Save_Pos
-017C 7400            101                 MOV     A, #00h        
-017E FC              102     Save_Pos:   MOV     R4, A         
-                     103     
-017F D0D0            104                 POP     PSW
-0181 D0E0            105                 POP     ACC
-0183 32              106                 RETI
-                     107     
-                     108     ; External Interrupt 1 ISR - Calculate CPM on button press
-0184 C0E0            109     EXT1_ISR:   PUSH    ACC
-0186 C0D0            110                 PUSH    PSW
-0188 C0F0            111                 PUSH    B
-018A C083            112                 PUSH    DPH
-018C C082            113                 PUSH    DPL
-                     114     
-                     115                 ; Check if this is the first press
-018E E523            116                 MOV     A, 23h
-0190 600F            117                 JZ      Calculate_CPM
-                     118                 
-                     119                 ; First press - just start the timer and clear flag
-0192 752300          120                 MOV     23h, #00h     ; Clear first press flag
-0195 752000          121                 MOV     20h, #00h     ; Reset counter low byte
-0198 752100          122                 MOV     21h, #00h     ; Reset counter middle byte
-019B 752200          123                 MOV     22h, #00h     ; Reset counter high byte
-A51 MACRO ASSEMBLER  HRM1                                                                 03/25/2025 15:16:32 PAGE     3
+0170 B40205           94     Pos2:       CJNE    A, #02h, Pos3
+0173 EA               95                 MOV     A, R2          ; Hundreds digit
+0174 4410             96                 ORL     A, #10h        ; Position 1 code
+0176 8003             97                 SJMP    Output_Digit
+                      98     
+0178 EB               99     Pos3:       MOV     A, R3          ; Thousands digit
+0179 4400            100                 ORL     A, #00h        ; Position 0 code (leftmost)
+                     101     
+017B                 102     Output_Digit:
+017B F590            103                 MOV     P1, A          ; Output to display
+                     104     
+                     105                 ; Update display position
+017D EC              106                 MOV     A, R4
+017E 04              107                 INC     A              
+017F B40402          108                 CJNE    A, #04h, Save_Pos
+0182 7400            109                 MOV     A, #00h        
+0184 FC              110     Save_Pos:   MOV     R4, A         
+                     111     
+0185 D0D0            112                 POP     PSW
+0187 D0E0            113                 POP     ACC
+0189 32              114                 RETI
+                     115     
+                     116     ; External Interrupt 1 ISR - Calculate CPM on button press
+018A C0E0            117     EXT1_ISR:   PUSH    ACC
+018C C0D0            118                 PUSH    PSW
+018E C0F0            119                 PUSH    B
+0190 C083            120                 PUSH    DPH
+0192 C082            121                 PUSH    DPL
+                     122                 
+0194 C28B            123                 CLR     IE1           ; Clear the interrupt flag
+A51 MACRO ASSEMBLER  HRM1                                                                 03/25/2025 15:52:54 PAGE     3
 
-019E 020244          124                 LJMP    EXT1_Exit
-                     125     
-01A1                 126     Calculate_CPM:
-                     127                 ; Calculate CPM = 12000 / timer_count
-                     128                 ; Check if count is very small (prevent division by zero or very high results)
-01A1 E520            129                 MOV     A, 20h
-01A3 4521            130                 ORL     A, 21h
-01A5 4522            131                 ORL     A, 22h
-01A7 700B            132                 JNZ     Valid_Count
-                     133                 
-                     134                 ; If count is 0, show maximum CPM (9999)
-01A9 7B09            135                 MOV     R3, #9        ; Thousands
-01AB 7A09            136                 MOV     R2, #9        ; Hundreds
-01AD 7909            137                 MOV     R1, #9        ; Tens
-01AF 7809            138                 MOV     R0, #9        ; Units
-01B1 02023B          139                 LJMP    Reset_Timer
-                     140     
-01B4                 141     Valid_Count:
-                     142                 ; Check if count is too large (> 12000 ticks = 60 seconds)
-01B4 E522            143                 MOV     A, 22h        ; High byte
-01B6 7010            144                 JNZ     Min_CPM       ; If high byte not 0, time > 1.3 minutes
-                     145                 
-01B8 E521            146                 MOV     A, 21h        ; Middle byte
-01BA B42E00          147                 CJNE    A, #46, Check_Middle  ; 46 * 256 = 11776
-01BD                 148     Check_Middle:
-01BD 4016            149                 JC      Normal_CPM    ; If middle byte < 46, proceed with calculation
-01BF 7012            150                 JNZ     Check_Exact   ; If middle byte > 46, check exact boundary
-                     151     
-                     152                 ; Middle byte = 46, check low byte
-01C1 E520            153                 MOV     A, 20h
-01C3 B4E000          154                 CJNE    A, #224, Check_Low  ; 46*256 + 224 = 12000
-01C6                 155     Check_Low:
-01C6 400D            156                 JC      Normal_CPM    ; If time < 60 seconds (12000 ticks), calculate
-                     157     
-01C8                 158     Min_CPM:    ; Time >= 60 seconds, show minimum CPM (60)
-01C8 7B00            159                 MOV     R3, #0        ; Thousands
-01CA 7A00            160                 MOV     R2, #0        ; Hundreds  
-01CC 7906            161                 MOV     R1, #6        ; Tens
-01CE 7800            162                 MOV     R0, #0        ; Units
-01D0 02023B          163                 LJMP    Reset_Timer
-                     164     
-01D3                 165     Check_Exact:
-01D3 50F3            166                 JNC     Min_CPM       ; If middle byte > 46, show min CPM
-                     167     
-01D5                 168     Normal_CPM:
-                     169                 ; Calculate 12000 / timer_count using LFSR approach
-                     170                 ; Load 24-bit timer count into B:DPH:DPL
-01D5 852082          171                 MOV     DPL, 20h      ; Low byte
-01D8 852183          172                 MOV     DPH, 21h      ; Middle byte
-01DB 8522F0          173                 MOV     B, 22h        ; High byte (should be 0 for normal calculations)
-                     174     
-                     175                 ; Simple division method:
-                     176                 ; Set up dividend (12000 = 0x2EE0)
-01DE 7530E0          177                 MOV     30h, #0E0h    ; Low byte of 12000
-01E1 75312E          178                 MOV     31h, #2Eh     ; High byte of 12000
-01E4 753200          179                 MOV     32h, #00h     ; Extended precision
-                     180                 
-                     181                 ; Zero out the result
-01E7 753300          182                 MOV     33h, #00h     ; Result low byte
-01EA 753400          183                 MOV     34h, #00h     ; Result high byte
-                     184                 
-                     185                 ; Division loop (12000 / timer_count)
-01ED 7F10            186                 MOV     R7, #16       ; 16-bit division
-                     187                 
-01EF                 188     Div_Loop:   ; Left shift the result
-01EF C3              189                 CLR     C
-A51 MACRO ASSEMBLER  HRM1                                                                 03/25/2025 15:16:32 PAGE     4
+                     124                 
+                     125                 ; Add a short debounce delay
+0196 75F032          126                 MOV     B, #50
+0199 D5F0FD          127     EXT1_Delay: DJNZ    B, EXT1_Delay
+                     128     
+                     129                 ; Check if this is the first press
+019C E523            130                 MOV     A, 23h
+019E 600F            131                 JZ      Calculate_CPM
+                     132                 
+                     133                 ; First press - just start the timer and clear flag
+01A0 752300          134                 MOV     23h, #00h     ; Clear first press flag
+01A3 752000          135                 MOV     20h, #00h     ; Reset counter low byte
+01A6 752100          136                 MOV     21h, #00h     ; Reset counter middle byte
+01A9 752200          137                 MOV     22h, #00h     ; Reset counter high byte
+01AC 02025D          138                 LJMP    EXT1_Exit     ; Use SJMP instead of LJMP for short jump
+                     139     
+01AF                 140     Calculate_CPM:
+                     141                 ; Calculate CPM = 12000 / timer_count
+                     142                 ; Check if count is very small (prevent division by zero or very high results)
+01AF E520            143                 MOV     A, 20h
+01B1 4521            144                 ORL     A, 21h
+01B3 4522            145                 ORL     A, 22h
+01B5 700B            146                 JNZ     Valid_Count
+                     147                 
+                     148                 ; If count is 0, show maximum CPM (9999)
+01B7 7B09            149                 MOV     R3, #9        ; Thousands
+01B9 7A09            150                 MOV     R2, #9        ; Hundreds
+01BB 7909            151                 MOV     R1, #9        ; Tens
+01BD 7809            152                 MOV     R0, #9        ; Units
+01BF 020249          153                 LJMP    Reset_Timer   ; Use SJMP instead of LJMP
+                     154     
+01C2                 155     Valid_Count:
+                     156                 ; Check if count is too large (> 12000 ticks = 60 seconds)
+01C2 E522            157                 MOV     A, 22h        ; High byte
+01C4 7010            158                 JNZ     Min_CPM       ; If high byte not 0, time > 1.3 minutes
+                     159                 
+01C6 E521            160                 MOV     A, 21h        ; Middle byte
+01C8 B42E00          161                 CJNE    A, #46, Check_Middle  ; 46 * 256 = 11776
+01CB                 162     Check_Middle:
+01CB 4016            163                 JC      Normal_CPM    ; If middle byte < 46, proceed with calculation
+01CD 7012            164                 JNZ     Check_Exact   ; If middle byte > 46, check exact boundary
+                     165     
+                     166                 ; Middle byte = 46, check low byte
+01CF E520            167                 MOV     A, 20h
+01D1 B4E000          168                 CJNE    A, #224, Check_Low  ; 46*256 + 224 = 12000
+01D4                 169     Check_Low:
+01D4 400D            170                 JC      Normal_CPM    ; If time < 60 seconds (12000 ticks), calculate
+                     171     
+01D6                 172     Min_CPM:    ; Time >= 60 seconds, show minimum CPM (60)
+01D6 7B00            173                 MOV     R3, #0        ; Thousands
+01D8 7A00            174                 MOV     R2, #0        ; Hundreds  
+01DA 7906            175                 MOV     R1, #6        ; Tens
+01DC 7800            176                 MOV     R0, #0        ; Units
+01DE 020249          177                 LJMP    Reset_Timer
+                     178     
+01E1                 179     Check_Exact:
+01E1 50F3            180                 JNC     Min_CPM       ; If middle byte > 46, show min CPM
+                     181     
+01E3                 182     Normal_CPM:
+                     183                 ; Calculate 12000 / timer_count using LFSR approach
+                     184                 ; Load 24-bit timer count into B:DPH:DPL
+01E3 852082          185                 MOV     DPL, 20h      ; Low byte
+01E6 852183          186                 MOV     DPH, 21h      ; Middle byte
+01E9 8522F0          187                 MOV     B, 22h        ; High byte (should be 0 for normal calculations)
+                     188     
+                     189                 ; Simple division method:
+A51 MACRO ASSEMBLER  HRM1                                                                 03/25/2025 15:52:54 PAGE     4
 
-01F0 E533            190                 MOV     A, 33h
-01F2 33              191                 RLC     A
-01F3 F533            192                 MOV     33h, A
-01F5 E534            193                 MOV     A, 34h
-01F7 33              194                 RLC     A
-01F8 F534            195                 MOV     34h, A
-                     196                 
-                     197                 ; Left shift the dividend
-01FA C3              198                 CLR     C
-01FB E530            199                 MOV     A, 30h
-01FD 33              200                 RLC     A
-01FE F530            201                 MOV     30h, A
-0200 E531            202                 MOV     A, 31h
-0202 33              203                 RLC     A
-0203 F531            204                 MOV     31h, A
-0205 E532            205                 MOV     A, 32h
-0207 33              206                 RLC     A
-0208 F532            207                 MOV     32h, A
-                     208                 
-                     209                 ; Check if dividend >= divisor
-020A C3              210                 CLR     C
-020B E530            211                 MOV     A, 30h
-020D 9582            212                 SUBB    A, DPL
-020F F535            213                 MOV     35h, A        ; Store remainder low
-0211 E531            214                 MOV     A, 31h
-0213 9583            215                 SUBB    A, DPH
-0215 F536            216                 MOV     36h, A        ; Store remainder middle
-0217 E532            217                 MOV     A, 32h
-0219 95F0            218                 SUBB    A, B
-021B 400A            219                 JC      Skip_Sub      ; If dividend < divisor, skip
-                     220                 
-                     221                 ; Dividend >= divisor, update dividend and set result bit
-021D 853530          222                 MOV     30h, 35h      ; Update dividend with remainder
-0220 853631          223                 MOV     31h, 36h
-0223 F532            224                 MOV     32h, A
-0225 0533            225                 INC     33h           ; Set bit 0 of result
-                     226                 
-0227                 227     Skip_Sub:   
-0227 DFC6            228                 DJNZ    R7, Div_Loop  ; Continue for all 16 bits
-                     229                 
-                     230                 ; Result is now in 34h:33h
-0229 E534            231                 MOV     A, 34h
-022B 75F00A          232                 MOV     B, #10
-022E 84              233                 DIV     AB            ; A = thousands, B = hundreds
-022F FB              234                 MOV     R3, A
-0230 AAF0            235                 MOV     R2, B
-                     236                 
-0232 E533            237                 MOV     A, 33h
-0234 75F00A          238                 MOV     B, #10
-0237 84              239                 DIV     AB            ; A = tens, B = units
-0238 F9              240                 MOV     R1, A
-0239 A8F0            241                 MOV     R0, B
-                     242     
-023B                 243     Reset_Timer:
-                     244                 ; Reset the timer for the next interval
-023B 752000          245                 MOV     20h, #00h
-023E 752100          246                 MOV     21h, #00h
-0241 752200          247                 MOV     22h, #00h
-                     248     
-0244                 249     EXT1_Exit:  
-0244 D082            250                 POP     DPL
-0246 D083            251                 POP     DPH
-0248 D0F0            252                 POP     B
-024A D0D0            253                 POP     PSW
-024C D0E0            254                 POP     ACC
-024E 32              255                 RETI
-A51 MACRO ASSEMBLER  HRM1                                                                 03/25/2025 15:16:32 PAGE     5
+                     190                 ; Set up dividend (12000 = 0x2EE0)
+01EC 7530E0          191                 MOV     30h, #0E0h    ; Low byte of 12000
+01EF 75312E          192                 MOV     31h, #2Eh     ; High byte of 12000
+01F2 753200          193                 MOV     32h, #00h     ; Extended precision
+                     194                 
+                     195                 ; Zero out the result
+01F5 753300          196                 MOV     33h, #00h     ; Result low byte
+01F8 753400          197                 MOV     34h, #00h     ; Result high byte
+                     198                 
+                     199                 ; Division loop (12000 / timer_count)
+01FB 7F10            200                 MOV     R7, #16       ; 16-bit division
+                     201                 
+01FD                 202     Div_Loop:   ; Left shift the result
+01FD C3              203                 CLR     C
+01FE E533            204                 MOV     A, 33h
+0200 33              205                 RLC     A
+0201 F533            206                 MOV     33h, A
+0203 E534            207                 MOV     A, 34h
+0205 33              208                 RLC     A
+0206 F534            209                 MOV     34h, A
+                     210                 
+                     211                 ; Left shift the dividend
+0208 C3              212                 CLR     C
+0209 E530            213                 MOV     A, 30h
+020B 33              214                 RLC     A
+020C F530            215                 MOV     30h, A
+020E E531            216                 MOV     A, 31h
+0210 33              217                 RLC     A
+0211 F531            218                 MOV     31h, A
+0213 E532            219                 MOV     A, 32h
+0215 33              220                 RLC     A
+0216 F532            221                 MOV     32h, A
+                     222                 
+                     223                 ; Check if dividend >= divisor
+0218 C3              224                 CLR     C
+0219 E530            225                 MOV     A, 30h
+021B 9582            226                 SUBB    A, DPL
+021D F535            227                 MOV     35h, A        ; Store remainder low
+021F E531            228                 MOV     A, 31h
+0221 9583            229                 SUBB    A, DPH
+0223 F536            230                 MOV     36h, A        ; Store remainder middle
+0225 E532            231                 MOV     A, 32h
+0227 95F0            232                 SUBB    A, B
+0229 400A            233                 JC      Skip_Sub      ; If dividend < divisor, skip
+                     234                 
+                     235                 ; Dividend >= divisor, update dividend and set result bit
+022B 853530          236                 MOV     30h, 35h      ; Update dividend with remainder
+022E 853631          237                 MOV     31h, 36h
+0231 F532            238                 MOV     32h, A
+0233 0533            239                 INC     33h           ; Set bit 0 of result
+                     240                 
+0235                 241     Skip_Sub:   
+0235 DFC6            242                 DJNZ    R7, Div_Loop  ; Continue for all 16 bits
+                     243                 
+                     244                 ; Result is now in 34h:33h
+0237 E534            245                 MOV     A, 34h
+0239 75F00A          246                 MOV     B, #10
+023C 84              247                 DIV     AB            ; A = thousands, B = hundreds
+023D FB              248                 MOV     R3, A
+023E AAF0            249                 MOV     R2, B
+                     250                 
+0240 E533            251                 MOV     A, 33h
+0242 75F00A          252                 MOV     B, #10
+0245 84              253                 DIV     AB            ; A = tens, B = units
+0246 F9              254                 MOV     R1, A
+0247 A8F0            255                 MOV     R0, B
+A51 MACRO ASSEMBLER  HRM1                                                                 03/25/2025 15:52:54 PAGE     5
 
                      256     
-                     257                 END
-A51 MACRO ASSEMBLER  HRM1                                                                 03/25/2025 15:16:32 PAGE     6
+0249                 257     Reset_Timer:
+                     258                 ; Reset the timer for the next interval
+0249 752000          259                 MOV     20h, #00h
+024C 752100          260                 MOV     21h, #00h
+024F 752200          261                 MOV     22h, #00h
+0252 752301          262                 MOV     23h, #01h     ; CRITICAL FIX: Reset first calculation flag for next mea
+                             surement
+                     263                 
+                     264                 ; Ensure External Interrupt 1 is properly enabled
+0255 D28A            265                 SETB    IT1           ; Falling edge triggered
+0257 D2AA            266                 SETB    EX1           ; Enable INT1
+0259 C28B            267                 CLR     IE1           ; Clear any pending interrupt
+025B D2AF            268                 SETB    EA            ; Ensure global interrupts are enabled
+                     269     
+025D                 270     EXT1_Exit:  
+                     271                 ; Add a small delay before returning to avoid switch bouncing
+025D 75F0C8          272                 MOV     B, #200       ; Longer debounce delay after processing
+0260                 273     EXT1_Exit_Delay: 
+0260 D5F0FD          274                 DJNZ    B, EXT1_Exit_Delay
+                     275                 
+0263 D082            276                 POP     DPL
+0265 D083            277                 POP     DPH
+0267 D0F0            278                 POP     B
+0269 D0D0            279                 POP     PSW
+026B D0E0            280                 POP     ACC
+026D 32              281                 RETI
+                     282     
+                     283                 END
+A51 MACRO ASSEMBLER  HRM1                                                                 03/25/2025 15:52:54 PAGE     6
 
 SYMBOL TABLE LISTING
 ------ ----- -------
@@ -283,42 +310,47 @@ N A M E             T Y P E  V A L U E   ATTRIBUTES
 
 ACC. . . . . . . .  D ADDR   00E0H   A   
 B. . . . . . . . .  D ADDR   00F0H   A   
-CALCULATE_CPM. . .  C ADDR   01A1H   A   
-CHECK_EXACT. . . .  C ADDR   01D3H   A   
-CHECK_LOW. . . . .  C ADDR   01C6H   A   
-CHECK_MIDDLE . . .  C ADDR   01BDH   A   
-DIV_LOOP . . . . .  C ADDR   01EFH   A   
+CALCULATE_CPM. . .  C ADDR   01AFH   A   
+CHECK_EXACT. . . .  C ADDR   01E1H   A   
+CHECK_LOW. . . . .  C ADDR   01D4H   A   
+CHECK_MIDDLE . . .  C ADDR   01CBH   A   
+DIV_LOOP . . . . .  C ADDR   01FDH   A   
 DPH. . . . . . . .  D ADDR   0083H   A   
 DPL. . . . . . . .  D ADDR   0082H   A   
 EA . . . . . . . .  B ADDR   00A8H.7 A   
 ET0. . . . . . . .  B ADDR   00A8H.1 A   
 EX1. . . . . . . .  B ADDR   00A8H.2 A   
-EXT1_EXIT. . . . .  C ADDR   0244H   A   
-EXT1_ISR . . . . .  C ADDR   0184H   A   
+EXT1_DELAY . . . .  C ADDR   0199H   A   
+EXT1_EXIT. . . . .  C ADDR   025DH   A   
+EXT1_EXIT_DELAY. .  C ADDR   0260H   A   
+EXT1_ISR . . . . .  C ADDR   018AH   A   
+IE1. . . . . . . .  B ADDR   0088H.3 A   
+IP . . . . . . . .  D ADDR   00B8H   A   
 IT1. . . . . . . .  B ADDR   0088H.2 A   
 MAIN . . . . . . .  C ADDR   0100H   A   
-MAINLOOP . . . . .  C ADDR   0137H   A   
-MIN_CPM. . . . . .  C ADDR   01C8H   A   
-NORMAL_CPM . . . .  C ADDR   01D5H   A   
-OUTPUT_DIGIT . . .  C ADDR   0175H   A   
+MAINLOOP . . . . .  C ADDR   013DH   A   
+MIN_CPM. . . . . .  C ADDR   01D6H   A   
+NORMAL_CPM . . . .  C ADDR   01E3H   A   
+OUTPUT_DIGIT . . .  C ADDR   017BH   A   
 P1 . . . . . . . .  D ADDR   0090H   A   
-POS1 . . . . . . .  C ADDR   0162H   A   
-POS2 . . . . . . .  C ADDR   016AH   A   
-POS3 . . . . . . .  C ADDR   0172H   A   
+P3 . . . . . . . .  D ADDR   00B0H   A   
+POS1 . . . . . . .  C ADDR   0168H   A   
+POS2 . . . . . . .  C ADDR   0170H   A   
+POS3 . . . . . . .  C ADDR   0178H   A   
 PSW. . . . . . . .  D ADDR   00D0H   A   
-RESET_TIMER. . . .  C ADDR   023BH   A   
-SAVE_POS . . . . .  C ADDR   017EH   A   
-SKIP_COUNT . . . .  C ADDR   0159H   A   
-SKIP_INC1. . . . .  C ADDR   0153H   A   
-SKIP_INC2. . . . .  C ADDR   0159H   A   
-SKIP_SUB . . . . .  C ADDR   0227H   A   
+RESET_TIMER. . . .  C ADDR   0249H   A   
+SAVE_POS . . . . .  C ADDR   0184H   A   
+SKIP_COUNT . . . .  C ADDR   015FH   A   
+SKIP_INC1. . . . .  C ADDR   0159H   A   
+SKIP_INC2. . . . .  C ADDR   015FH   A   
+SKIP_SUB . . . . .  C ADDR   0235H   A   
 SP . . . . . . . .  D ADDR   0081H   A   
 TH0. . . . . . . .  D ADDR   008CH   A   
-TIMER0_ISR . . . .  C ADDR   0139H   A   
+TIMER0_ISR . . . .  C ADDR   013FH   A   
 TL0. . . . . . . .  D ADDR   008AH   A   
 TMOD . . . . . . .  D ADDR   0089H   A   
 TR0. . . . . . . .  B ADDR   0088H.4 A   
-VALID_COUNT. . . .  C ADDR   01B4H   A   
+VALID_COUNT. . . .  C ADDR   01C2H   A   
 
 
 REGISTER BANK(S) USED: 0 
