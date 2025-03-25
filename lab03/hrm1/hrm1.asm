@@ -150,7 +150,7 @@ Calculate_CPM:
             MOV     R2, #9        ; Hundreds
             MOV     R1, #9        ; Tens
             MOV     R0, #9        ; Units
-            SJMP    Reset_Timer   ; Use SJMP instead of LJMP
+            LJMP    Reset_Timer   ; Use SJMP instead of LJMP
 
 Valid_Count:
             ; Check if count is too large (> 12000 ticks = 60 seconds)
