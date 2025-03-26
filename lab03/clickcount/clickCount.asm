@@ -14,17 +14,15 @@ MAIN:       MOV     SP, #30h
             ; Initialize registers
             CLR     RS0            ; Select Bank 0
             CLR     RS1
-            MOV     R0, #00h      ; 1/100 digit
-            MOV     R1, #00h      ; 1/10 digit
-            MOV     R2, #00h      ; Ones digit
-            MOV     R3, #00h      ; Tens digit
+            MOV     R0, #00h      ; 1/100 second digit
+            MOV     R1, #00h      ; 1/10 second digit
+            MOV     R2, #00h      ; Seconds digit
+            MOV     R3, #00h      ; 10 seconds digit
             MOV     R4, #00h      ; Display position
-            MOV     R5, #00h      ; 5ms counter for 1 second tracking
+            MOV     R5, #00h      ; Counter for 5ms intervals
             
-            ; Initialize click tracking
-            MOV     20h, #00h     ; Click counter low byte
-            MOV     21h, #00h     ; Click counter high byte
-            MOV     22h, #00h     ; Seconds counter
+            ; Initialize click state
+            MOV     20h, #00h     ; Click state (0=Waiting for first click, 1=Timing between clicks)
             
             ; Timer 0 setup for 5ms
             MOV     TH0, #0ECh     
@@ -51,60 +49,55 @@ Timer0_ISR: PUSH    ACC
             CLR     TF0            
             SETB    TR0            
 
-            ; Increment 5ms counter
-            INC     R5
+            ; Check if we're timing between clicks
+            MOV     A, 20h
+            JZ      Display_Update   ; If 0, we're not timing yet
+
+            ; Update stopwatch every 2 intervals (10ms) - from stopwatch.asm
             MOV     A, R5
-            CJNE    A, #0C8h, Display_Update  ; 200 * 5ms = 1 second
-            MOV     R5, #00h     
+            INC     R5            ; Increment interval counter
+            ANL     A, #01h       ; Check if even number
+            JNZ     Display_Update
 
-            ; Increment seconds counter
-            INC     22h
-            MOV     A, 22h
-            CJNE    A, #3Ch, Calc_CPM  ; 60 seconds = 1 minute
-            MOV     22h, #00h     ; Reset seconds
-
-            ; Calculate Clicks Per Minute (CPM)
-Calc_CPM:   MOV     A, 20h        ; Low byte of click count
-            MOV     B, #60        ; Divide by current seconds count
-            DIV     AB            ; Divide click count by seconds elapsed
-            MOV     R2, A         ; Ones digit
-            MOV     R1, B         ; Remainder (for tenths)
-
-            ; Convert remainder to tenths
-            MOV     A, R1
-            MOV     B, #10
-            DIV     AB
-            MOV     R0, A         ; Tenths digit
-            MOV     R1, B         ; Hundredths digit
-            
-            ; Clear tens digit if clicks per minute is less than 100
-            MOV     R3, #00h
-            
-            ; If result is over 99, set to 99
+            ; Update stopwatch digits (using stopwatch.asm timing logic)
+            INC     R0           ; 1/100 seconds
+            MOV     A, R0
             CJNE    A, #0Ah, Display_Update
-            MOV     R2, #09h
-            MOV     R1, #09h
-            MOV     R0, #09h
-            MOV     R3, #09h
+            MOV     R0, #00h
+            
+            INC     R1           ; 1/10 seconds
+            MOV     A, R1
+            CJNE    A, #0Ah, Display_Update
+            MOV     R1, #00h
+            
+            INC     R2           ; Seconds
+            MOV     A, R2
+            CJNE    A, #0Ah, Display_Update
+            MOV     R2, #00h
+            
+            INC     R3           ; 10 seconds
+            MOV     A, R3
+            CJNE    A, #06h, Display_Update
+            MOV     R3, #00h
 
 Display_Update:
-            ; Display routine
+            ; Display logic from stopwatch.asm
             MOV     A, R4          
-            CJNE    A, #00h, Pos1
-            MOV     A, R3         ; Tens digit
+            CJNE    A, #00h, Stop_Pos1
+            MOV     A, R3         ; 10 seconds
             SJMP    Output_Digit
 
-Pos1:       CJNE    A, #01h, Pos2
-            MOV     A, R2         ; Ones digit
+Stop_Pos1:  CJNE    A, #01h, Stop_Pos2
+            MOV     A, R2         ; Seconds
             ORL     A, #10h        
             SJMP    Output_Digit
 
-Pos2:       CJNE    A, #02h, Pos3
-            MOV     A, R1         ; Tenths digit
+Stop_Pos2:  CJNE    A, #02h, Stop_Pos3
+            MOV     A, R1         ; 1/10 second
             ORL     A, #20h        
             SJMP    Output_Digit
 
-Pos3:       MOV     A, R0         ; Hundredths digit
+Stop_Pos3:  MOV     A, R0         ; 1/100 second
             ORL     A, #30h        
 
 Output_Digit:
@@ -124,11 +117,24 @@ Save_Pos:   MOV     R4, A
 EXT0_ISR:   PUSH    ACC
             PUSH    PSW
             
-            ; Increment click counter
-            INC     20h            ; Increment low byte
+            ; Check if this is the first click
             MOV     A, 20h
-            JNZ     EXT0_ISR_Exit  ; If no rollover, exit
-            INC     21h            ; Increment high byte if low byte rolled over
+            JNZ     Second_Click
+
+            ; First click - start timer
+            MOV     20h, #01h     ; Set timing flag
+            ; Reset all counters
+            MOV     R0, #00h      ; 1/100 second
+            MOV     R1, #00h      ; 1/10 second
+            MOV     R2, #00h      ; seconds
+            MOV     R3, #00h      ; 10 seconds
+            MOV     R5, #00h      ; Reset interval counter
+            SJMP    EXT0_ISR_Exit
+
+Second_Click:
+            ; Second click - stop timer
+            MOV     20h, #00h     ; Reset timing flag
+            ; Time is now shown on display
 
 EXT0_ISR_Exit:
             POP     PSW

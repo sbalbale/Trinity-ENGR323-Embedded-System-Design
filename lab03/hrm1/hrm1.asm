@@ -1,7 +1,7 @@
 ORG     0000h           
             AJMP    MAIN           
 
-            ORG     0003h          ; External Interrupt 1 vector
+            ORG     0003h          ; External Interrupt 0 vector
             AJMP    EXT0_ISR           
 
             ORG     000Bh          ; Timer 0 vector
@@ -12,95 +12,78 @@ MAIN:       MOV     SP, #30h
             MOV     TMOD, #01h     ; Timer 0, mode 1 (16-bit)
 
             ; Initialize registers
-            MOV     R0, #00h      ; Display digit 0 (units)
-            MOV     R1, #00h      ; Display digit 1 (tens)
-            MOV     R2, #00h      ; Display digit 2 (hundreds)
-            MOV     R3, #00h      ; Display digit 3 (thousands)
+            CLR     RS0            ; Select Bank 0
+            CLR     RS1
+            MOV     R0, #00h      ; Ones digit of heart rate
+            MOV     R1, #00h      ; Tens digit of heart rate
+            MOV     R2, #00h      ; Hundreds digit of heart rate
+            MOV     R3, #00h      ; Thousands digit of heart rate
             MOV     R4, #00h      ; Display position
+            MOV     R5, #00h      ; Counter for 5ms intervals
             
-            ; Timer counter (24-bit: 22h:21h:20h)
-            MOV     20h, #00h     ; Timer counter low byte
-            MOV     21h, #00h     ; Timer counter middle byte
-            MOV     22h, #00h     ; Timer counter high byte
+            ; Initialize variables
+            MOV     20h, #00h     ; State (0=No clicks, 1=First click received, 2+=Subsequent clicks)
+            MOV     21h, #00h     ; Time count (5ms intervals between clicks)
+            MOV     22h, #00h     ; Total time for averaging
+            MOV     23h, #00h     ; Click count (for averaging)
+            MOV     24h, #00h     ; Temporary storage during calculation
+            MOV     25h, #00h     ; Temporary storage during calculation
+            MOV     26h, #03h     ; Number of clicks to average (configurable: 2 or 3)
             
-            MOV     23h, #01h     ; First calculation flag (1=first press)
-            MOV     24h, #00h     ; Status flags
-            
-            ; Setup P3.2 as input for INT0
-            SETB    P3.2          ; Set P3.3 (INT1) as input with pull-up
-            
-            ; Setup External Interrupt 1
-            SETB    IT0           ; Falling edge triggered
-            SETB    EX0           ; Enable INT0
-            CLR     IE0           ; Clear any pending interrupt flag
-            
-            ; Set interrupt priority (optional)
-            ;SETB    IP.2          ; Give INT1 high priority
-            
-            ; Timer 0 setup for 5ms (12 MHz clock)
+            ; Timer 0 setup for 5ms
             MOV     TH0, #0ECh     
             MOV     TL0, #078h
-            SETB    ET0           ; Enable Timer 0
-            SETB    EA            ; Enable global interrupts
             SETB    TR0           ; Start Timer 0
-
-            ; Initial display shows "0000"
-            MOV     R0, #00h
-            MOV     R1, #00h
-            MOV     R2, #00h
-            MOV     R3, #00h
+            
+            ; Setup External Interrupt 0
+            SETB    IT0           ; Falling edge triggered
+            SETB    EX0           ; Enable INT0
+            
+            ; Enable interrupts
+            SETB    ET0           ; Enable Timer 0 interrupt
+            SETB    EA            ; Enable global interrupts
 
 MainLoop:   SJMP    MainLoop      ; Everything handled by interrupts
 
-; Timer 0 ISR - Handles display refresh and time counting
 Timer0_ISR: PUSH    ACC            
             PUSH    PSW
 
             ; Reload timer for next 5ms
             CLR     TR0            
             MOV     TH0, #0ECh     
-            MOV     TL0, #078h     
+            MOV     TL0, #08Ch     
+            CLR     TF0            
             SETB    TR0            
 
-
-            ; Increment time counter if not the first press
-            MOV     A, 23h
-            JNZ     Skip_Count     ; Skip if it's the first press
-
-            ; Increment 24-bit counter (22h:21h:20h)
-            INC     20h
+            ; Check if we're in timing mode
             MOV     A, 20h
-            JNZ     Skip_Inc1
-            INC     21h            ; Increment middle byte on overflow
-Skip_Inc1:  MOV     A, 21h
-            JNZ     Skip_Inc2
-            INC     22h            ; Increment high byte on overflow
-Skip_Inc2:
-
-Skip_Count:
-            ; Handle display multiplexing
-            MOV     A, R4          ; Get current display position
+            JZ      Display_Update  ; If 0, we're not timing yet
             
+            ; We're timing between clicks
+            INC     21h           ; Increment the time counter
+
+Display_Update:
+            ; Display logic
+            MOV     A, R4          
             CJNE    A, #00h, Pos1
-            MOV     A, R0          ; Units digit
-            ORL     A, #30h        ; Position 3 code (rightmost)
+            MOV     A, R3         ; Thousands digit
             SJMP    Output_Digit
 
 Pos1:       CJNE    A, #01h, Pos2
-            MOV     A, R1          ; Tens digit
-            ORL     A, #20h        ; Position 2 code
+            MOV     A, R2         ; Hundreds digit
+            ORL     A, #10h        
             SJMP    Output_Digit
 
 Pos2:       CJNE    A, #02h, Pos3
-            MOV     A, R2          ; Hundreds digit
-            ORL     A, #10h        ; Position 1 code
+            MOV     A, R1         ; Tens digit
+            ORL     A, #20h        
             SJMP    Output_Digit
 
-Pos3:       MOV     A, R3          ; Thousands digit
-            ORL     A, #00h        ; Position 0 code (leftmost)
+Pos3:       MOV     A, R0         ; Ones digit
+            ORL     A, #30h        
 
 Output_Digit:
-            MOV     P1, A          ; Output to display
+            MOV     P1, A          
 
             ; Update display position
             MOV     A, R4
@@ -109,173 +92,118 @@ Output_Digit:
             MOV     A, #00h        
 Save_Pos:   MOV     R4, A         
 
-            POP     PSW
+            POP     PSW            
             POP     ACC
             RETI
 
-; External Interrupt 1 ISR - Calculate CPM on button press
 EXT0_ISR:   PUSH    ACC
             PUSH    PSW
-            PUSH    B
-            PUSH    DPH
-            PUSH    DPL
             
-            CLR     IE1           ; Clear the interrupt flag
+            ; Check current state
+            MOV     A, 20h
+            JNZ     Handle_Subsequent_Click  ; If not 0, we've had clicks before
             
-            ; Add a short debounce delay
-            MOV     B, #50
-EXT0_Delay: DJNZ    B, EXT0_Delay
-
-            ; Check if this is the first press
+            ; First click ever - just start timing
+            MOV     20h, #01h     ; Set to "first click received" state
+            MOV     21h, #00h     ; Reset time counter
+            MOV     22h, #00h     ; Clear total time
+            MOV     23h, #00h     ; Clear click count
+            SJMP    EXT0_ISR_Exit
+            
+Handle_Subsequent_Click:
+            ; This is a subsequent click
+            
+            ; First, check if time is too small to prevent errors
+            MOV     A, 21h
+            CJNE    A, #12, Valid_Time  ; 12 * 5ms = 60ms minimum (avoid impossibly fast rates)
+            MOV     20h, #01h     ; Reset to first-click state if click too fast
+            MOV     21h, #00h     ; Reset counter
+            SJMP    EXT0_ISR_Exit
+            
+Valid_Time:
+            JC      EXT0_ISR_Exit  ; If less than 12 (carry set), click too fast - ignore
+            
+            ; Add this interval to total time
+            MOV     A, 22h
+            ADD     A, 21h
+            MOV     22h, A
+            
+            ; Increment click count
+            INC     23h
+            
+            ; Check if we have enough clicks for averaging
             MOV     A, 23h
-            JZ      Calculate_CPM
+            CJNE    A, 26h, Not_Enough_Clicks
             
-            ; First press - just start the timer and clear flag
-            MOV     23h, #00h     ; Clear first press flag
-            MOV     20h, #00h     ; Reset counter low byte
-            MOV     21h, #00h     ; Reset counter middle byte
-            MOV     22h, #00h     ; Reset counter high byte
-            JMP    EXT0_Exit     ; Use SJMP instead of LJMP for short jump
-
-Calculate_CPM:
-            ; Calculate CPM = 12000 / timer_count
-            ; Check if count is very small (prevent division by zero or very high results)
-            MOV     A, 20h
-            ORL     A, 21h
-            ORL     A, 22h
-            JNZ     Valid_Count
+            ; We have enough clicks to calculate average
             
-            ; If count is 0, show maximum CPM (9999)
-            MOV     R3, #9        ; Thousands
-            MOV     R2, #9        ; Hundreds
-            MOV     R1, #9        ; Tens
-            MOV     R0, #9        ; Units
-            LJMP    Reset_Timer   ; Use SJMP instead of LJMP
-
-Valid_Count:
-            ; Check if count is too large (> 12000 ticks = 60 seconds)
-            MOV     A, 22h        ; High byte
-            JNZ     Min_CPM       ; If high byte not 0, time > 1.3 minutes
+            ; Calculate average interval: 22h / 23h (total time / click count)
+            MOV     A, 22h
+            MOV     B, 23h
+            DIV     AB            ; A = average interval
             
-            MOV     A, 21h        ; Middle byte
-            CJNE    A, #46, Check_Middle  ; 46 * 256 = 11776
-Check_Middle:
-            JC      Normal_CPM    ; If middle byte < 46, proceed with calculation
-            JNZ     Check_Exact   ; If middle byte > 46, check exact boundary
-
-            ; Middle byte = 46, check low byte
-            MOV     A, 20h
-            CJNE    A, #224, Check_Low  ; 46*256 + 224 = 12000
-Check_Low:
-            JC      Normal_CPM    ; If time < 60 seconds (12000 ticks), calculate
-
-Min_CPM:    ; Time >= 60 seconds, show minimum CPM (60)
-            MOV     R3, #0        ; Thousands
-            MOV     R2, #0        ; Hundreds  
-            MOV     R1, #6        ; Tens
-            MOV     R0, #0        ; Units
-            LJMP    Reset_Timer
-
-Check_Exact:
-            JNC     Min_CPM       ; If middle byte > 46, show min CPM
-
-Normal_CPM:
-            ; Calculate 12000 / timer_count using LFSR approach
-            ; Load 24-bit timer count into B:DPH:DPL
-            MOV     DPL, 20h      ; Low byte
-            MOV     DPH, 21h      ; Middle byte
-            MOV     B, 22h        ; High byte (should be 0 for normal calculations)
-
-            ; Simple division method:
-            ; Set up dividend (12000 = 0x2EE0)
-            MOV     30h, #0E0h    ; Low byte of 12000
-            MOV     31h, #2Eh     ; High byte of 12000
-            MOV     32h, #00h     ; Extended precision
+            ; Now calculate BPM = 12000 / average_interval
+            MOV     24h, #120     ; Low byte of 12000
+            MOV     25h, #47      ; High byte of 12000 (actually 12120 for easier calculation)
+            MOV     B, A          ; B = average interval
+            SJMP    Calculate_BPM
             
-            ; Zero out the result
-            MOV     33h, #00h     ; Result low byte
-            MOV     34h, #00h     ; Result high byte
+Not_Enough_Clicks:
+            ; Calculate BPM based on current interval
+            MOV     24h, #120     ; Low byte of 12000
+            MOV     25h, #47      ; High byte of 12000
+            MOV     B, 21h        ; B = current interval
             
-            ; Division loop (12000 / timer_count)
-            MOV     R7, #16       ; 16-bit division
+Calculate_BPM:
+            ; Using repeated subtraction to simulate division
+            ; Calculate 12000 / B
+            MOV     22h, #0       ; Initialize result quotient
+            MOV     23h, #0       ; Initialize hundreds place
             
-Div_Loop:   ; Left shift the result
+DivLoop:
+            ; Check if we can subtract B from 25h:24h
             CLR     C
-            MOV     A, 33h
-            RLC     A
-            MOV     33h, A
-            MOV     A, 34h
-            RLC     A
-            MOV     34h, A
-            
-            ; Left shift the dividend
-            CLR     C
-            MOV     A, 30h
-            RLC     A
-            MOV     30h, A
-            MOV     A, 31h
-            RLC     A
-            MOV     31h, A
-            MOV     A, 32h
-            RLC     A
-            MOV     32h, A
-            
-            ; Check if dividend >= divisor
-            CLR     C
-            MOV     A, 30h
-            SUBB    A, DPL
-            MOV     35h, A        ; Store remainder low
-            MOV     A, 31h
-            SUBB    A, DPH
-            MOV     36h, A        ; Store remainder middle
-            MOV     A, 32h
+            MOV     A, 24h
             SUBB    A, B
-            JC      Skip_Sub      ; If dividend < divisor, skip
+            MOV     24h, A        ; Store result back
             
-            ; Dividend >= divisor, update dividend and set result bit
-            MOV     30h, 35h      ; Update dividend with remainder
-            MOV     31h, 36h
-            MOV     32h, A
-            INC     33h           ; Set bit 0 of result
+            MOV     A, 25h
+            SUBB    A, #0         ; Subtract borrow
+            MOV     25h, A
             
-Skip_Sub:   
-            DJNZ    R7, Div_Loop  ; Continue for all 16 bits
+            JC      EndDiv        ; If carry, we're done
             
-            ; Result is now in 34h:33h
-            MOV     A, 34h
+            ; Increment result
+            INC     22h
+            MOV     A, 22h
+            CJNE    A, #100, DivLoop   ; Keep going until quotient reaches 100
+            MOV     22h, #0            ; Reset quotient to 0
+            INC     23h                ; Increment hundreds place
+            SJMP    DivLoop
+            
+EndDiv:
+            ; Now convert result to BCD for display
+            MOV     A, 22h        ; Get quotient (0-99 portion)
             MOV     B, #10
-            DIV     AB            ; A = thousands, B = hundreds
-            MOV     R3, A
-            MOV     R2, B
+            DIV     AB
+            MOV     R1, A         ; Tens digit
+            MOV     R0, B         ; Ones digit
             
-            MOV     A, 33h
-            MOV     B, #10
-            DIV     AB            ; A = tens, B = units
-            MOV     R1, A
-            MOV     R0, B
+            ; Handle hundreds place
+            MOV     A, 23h
+            MOV     R2, A         ; Hundreds digit
+            MOV     R3, #0        ; Thousands digit
+            
+            ; Reset for next measurement
+            MOV     21h, #00h     ; Reset interval timer for next click
+            
+            ; If we've reached our desired clicks for average, reset the averaging
+            MOV     A, 23h
+            CJNE    A, 26h, EXT0_ISR_Exit
+            MOV     22h, #00h     ; Reset total time
+            MOV     23h, #00h     ; Reset click count
 
-Reset_Timer:
-            ; Reset the timer for the next interval
-            MOV     20h, #00h
-            MOV     21h, #00h
-            MOV     22h, #00h
-            MOV     23h, #01h     ; CRITICAL FIX: Reset first calculation flag for next measurement
-            
-            ; Ensure External Interrupt 1 is properly enabled
-            SETB    IT1           ; Falling edge triggered
-            SETB    EX1           ; Enable INT1
-            CLR     IE1           ; Clear any pending interrupt
-            SETB    EA            ; Ensure global interrupts are enabled
-
-EXT0_Exit:  
-            ; Add a small delay before returning to avoid switch bouncing
-            MOV     B, #200       ; Longer debounce delay after processing
-EXT0_Exit_Delay: 
-            DJNZ    B, EXT0_Exit_Delay
-            
-            POP     DPL
-            POP     DPH
-            POP     B
+EXT0_ISR_Exit:
             POP     PSW
             POP     ACC
             RETI
