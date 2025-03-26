@@ -14,16 +14,17 @@ MAIN:       MOV     SP, #30h
             ; Initialize registers
             CLR     RS0            ; Select Bank 0
             CLR     RS1
-            MOV     R0, #00h      ; 1/100 second digit
-            MOV     R1, #00h      ; 1/10 second digit
-            MOV     R2, #00h      ; seconds digit
-            MOV     R3, #00h      ; 10 seconds digit
+            MOV     R0, #00h      ; 1/100 digit
+            MOV     R1, #00h      ; 1/10 digit
+            MOV     R2, #00h      ; Ones digit
+            MOV     R3, #00h      ; Tens digit
             MOV     R4, #00h      ; Display position
+            MOV     R5, #00h      ; 5ms counter for 1 second tracking
             
-            ; Initialize interval tracking
-            MOV     20h, #00h     ; First interrupt flag (0=waiting first pulse, 1=measuring)
-            MOV     21h, #00h     ; Interval high byte
-            MOV     22h, #00h     ; Interval low byte
+            ; Initialize click tracking
+            MOV     20h, #00h     ; Click counter low byte
+            MOV     21h, #00h     ; Click counter high byte
+            MOV     22h, #00h     ; Seconds counter
             
             ; Timer 0 setup for 5ms
             MOV     TH0, #0ECh     
@@ -50,53 +51,60 @@ Timer0_ISR: PUSH    ACC
             CLR     TF0            
             SETB    TR0            
 
-            ; Check if we're measuring interval
-            MOV     A, 20h
-            JZ      Display_Update
+            ; Increment 5ms counter
+            INC     R5
+            MOV     A, R5
+            CJNE    A, #0C8h, Display_Update  ; 200 * 5ms = 1 second
+            MOV     R5, #00h     
 
-            ; Increment interval time tracking
-            INC     22h            ; Increment low byte
+            ; Increment seconds counter
+            INC     22h
             MOV     A, 22h
-            JNZ     Display_Update ; If low byte didn't roll over, skip
-            INC     21h            ; Increment high byte if low byte rolled over
+            CJNE    A, #3Ch, Calc_CPM  ; 60 seconds = 1 minute
+            MOV     22h, #00h     ; Reset seconds
 
-Display_Update:
-            ; Update display digits
-            MOV     A, 21h         ; High byte of interval
-            MOV     B, #10         ; Divide by 10 for display
-            DIV     AB
-            MOV     R3, A          ; 10 seconds digit (high byte / 10)
-            
-            MOV     A, 22h         ; Low byte of interval
-            MOV     B, #10         ; Divide by 10
-            DIV     AB
-            MOV     R2, A          ; Seconds digit (quotient)
-            MOV     R1, B          ; 1/10 seconds (remainder)
-            
-            ; Convert remainder to 1/100 seconds
+            ; Calculate Clicks Per Minute (CPM)
+Calc_CPM:   MOV     A, 20h        ; Low byte of click count
+            MOV     B, #60        ; Divide by current seconds count
+            DIV     AB            ; Divide click count by seconds elapsed
+            MOV     R2, A         ; Ones digit
+            MOV     R1, B         ; Remainder (for tenths)
+
+            ; Convert remainder to tenths
             MOV     A, R1
             MOV     B, #10
             DIV     AB
-            MOV     R0, A          ; 1/10 seconds
-            MOV     R1, B          ; 1/100 seconds
+            MOV     R0, A         ; Tenths digit
+            MOV     R1, B         ; Hundredths digit
+            
+            ; Clear tens digit if clicks per minute is less than 100
+            MOV     R3, #00h
+            
+            ; If result is over 99, set to 99
+            CJNE    A, #0Ah, Display_Update
+            MOV     R2, #09h
+            MOV     R1, #09h
+            MOV     R0, #09h
+            MOV     R3, #09h
 
-            ; Display routine (similar to previous programs)
+Display_Update:
+            ; Display routine
             MOV     A, R4          
             CJNE    A, #00h, Pos1
-            MOV     A, R3         ; 10 seconds
+            MOV     A, R3         ; Tens digit
             SJMP    Output_Digit
 
 Pos1:       CJNE    A, #01h, Pos2
-            MOV     A, R2         ; Seconds
+            MOV     A, R2         ; Ones digit
             ORL     A, #10h        
             SJMP    Output_Digit
 
 Pos2:       CJNE    A, #02h, Pos3
-            MOV     A, R1         ; 1/10 second
+            MOV     A, R1         ; Tenths digit
             ORL     A, #20h        
             SJMP    Output_Digit
 
-Pos3:       MOV     A, R0         ; 1/100 second
+Pos3:       MOV     A, R0         ; Hundredths digit
             ORL     A, #30h        
 
 Output_Digit:
@@ -116,19 +124,11 @@ Save_Pos:   MOV     R4, A
 EXT0_ISR:   PUSH    ACC
             PUSH    PSW
             
-            ; Check if this is the first interrupt
+            ; Increment click counter
+            INC     20h            ; Increment low byte
             MOV     A, 20h
-            JNZ     Stop_Interval
-
-            ; First interrupt - start measuring
-            MOV     20h, #01h     ; Set measuring flag
-            MOV     21h, #00h     ; Reset high byte
-            MOV     22h, #00h     ; Reset low byte
-            SJMP    EXT0_ISR_Exit
-
-Stop_Interval:
-            ; Second interrupt - stop measuring and display
-            MOV     20h, #00h     ; Reset first interrupt flag
+            JNZ     EXT0_ISR_Exit  ; If no rollover, exit
+            INC     21h            ; Increment high byte if low byte rolled over
 
 EXT0_ISR_Exit:
             POP     PSW
