@@ -1,0 +1,195 @@
+A51 MACRO ASSEMBLER  CLICKCOUNT                                                           03/26/2025 14:23:12 PAGE     1
+
+
+MACRO ASSEMBLER A51 V8.2.7.0
+OBJECT MODULE PLACED IN .\Objects\clickCount.obj
+ASSEMBLER INVOKED BY: C:\Keil_v5\C51\BIN\A51.EXE clickCount.asm SET(SMALL) DEBUG PRINT(.\Listings\clickCount.lst) OBJECT
+                      (.\Objects\clickCount.obj) EP
+
+LOC  OBJ            LINE     SOURCE
+
+0000                   1     ORG     0000h           
+0000 2100              2                 AJMP    MAIN           
+                       3     
+0003                   4                 ORG     0003h          ; External Interrupt 0 vector
+0003 218C              5                 AJMP    EXT0_ISR           
+                       6     
+000B                   7                 ORG     000Bh          ; Timer 0 vector
+000B 212F              8                 AJMP    Timer0_ISR
+                       9     
+0100                  10                 ORG     0100h          
+0100 758130           11     MAIN:       MOV     SP, #30h       
+0103 758901           12                 MOV     TMOD, #01h     ; Timer 0, mode 1 (16-bit)
+                      13     
+                      14                 ; Initialize registers
+0106 C2D3             15                 CLR     RS0            ; Select Bank 0
+0108 C2D4             16                 CLR     RS1
+010A 7800             17                 MOV     R0, #00h      ; 1/100 second digit
+010C 7900             18                 MOV     R1, #00h      ; 1/10 second digit
+010E 7A00             19                 MOV     R2, #00h      ; seconds digit
+0110 7B00             20                 MOV     R3, #00h      ; 10 seconds digit
+0112 7C00             21                 MOV     R4, #00h      ; Display position
+                      22                 
+                      23                 ; Initialize interval tracking
+0114 752000           24                 MOV     20h, #00h     ; First interrupt flag (0=waiting first pulse, 1=measurin
+                             g)
+0117 752100           25                 MOV     21h, #00h     ; Interval high byte
+011A 752200           26                 MOV     22h, #00h     ; Interval low byte
+                      27                 
+                      28                 ; Timer 0 setup for 5ms
+011D 758CEC           29                 MOV     TH0, #0ECh     
+0120 758A78           30                 MOV     TL0, #078h
+0123 D28C             31                 SETB    TR0           ; Start Timer 0
+                      32                 
+                      33                 ; Setup External Interrupt 0
+0125 D288             34                 SETB    IT0           ; Falling edge triggered
+0127 D2A8             35                 SETB    EX0           ; Enable INT0
+                      36                 
+                      37                 ; Enable interrupts
+0129 D2A9             38                 SETB    ET0           ; Enable Timer 0 interrupt
+012B D2AF             39                 SETB    EA            ; Enable global interrupts
+                      40     
+012D 80FE             41     MainLoop:   SJMP    MainLoop      ; Everything handled by interrupts
+                      42     
+012F C0E0             43     Timer0_ISR: PUSH    ACC            
+0131 C0D0             44                 PUSH    PSW
+                      45     
+                      46                 ; Reload timer for next 5ms
+0133 C28C             47                 CLR     TR0            
+0135 758CEC           48                 MOV     TH0, #0ECh     
+0138 758A8C           49                 MOV     TL0, #08Ch     
+013B C28D             50                 CLR     TF0            
+013D D28C             51                 SETB    TR0            
+                      52     
+                      53                 ; Check if we're measuring interval
+013F E520             54                 MOV     A, 20h
+0141 6008             55                 JZ      Display_Update
+                      56     
+A51 MACRO ASSEMBLER  CLICKCOUNT                                                           03/26/2025 14:23:12 PAGE     2
+
+                      57                 ; Increment interval time tracking
+0143 0522             58                 INC     22h            ; Increment low byte
+0145 E522             59                 MOV     A, 22h
+0147 7002             60                 JNZ     Display_Update ; If low byte didn't roll over, skip
+0149 0521             61                 INC     21h            ; Increment high byte if low byte rolled over
+                      62     
+014B                  63     Display_Update:
+                      64                 ; Update display digits
+014B E521             65                 MOV     A, 21h         ; High byte of interval
+014D 75F00A           66                 MOV     B, #10         ; Divide by 10 for display
+0150 84               67                 DIV     AB
+0151 FB               68                 MOV     R3, A          ; 10 seconds digit (high byte / 10)
+                      69                 
+0152 E522             70                 MOV     A, 22h         ; Low byte of interval
+0154 75F00A           71                 MOV     B, #10         ; Divide by 10
+0157 84               72                 DIV     AB
+0158 FA               73                 MOV     R2, A          ; Seconds digit (quotient)
+0159 A9F0             74                 MOV     R1, B          ; 1/10 seconds (remainder)
+                      75                 
+                      76                 ; Convert remainder to 1/100 seconds
+015B E9               77                 MOV     A, R1
+015C 75F00A           78                 MOV     B, #10
+015F 84               79                 DIV     AB
+0160 F8               80                 MOV     R0, A          ; 1/10 seconds
+0161 A9F0             81                 MOV     R1, B          ; 1/100 seconds
+                      82     
+                      83                 ; Display routine (similar to previous programs)
+0163 EC               84                 MOV     A, R4          
+0164 B40003           85                 CJNE    A, #00h, Pos1
+0167 EB               86                 MOV     A, R3         ; 10 seconds
+0168 8013             87                 SJMP    Output_Digit
+                      88     
+016A B40105           89     Pos1:       CJNE    A, #01h, Pos2
+016D EA               90                 MOV     A, R2         ; Seconds
+016E 4410             91                 ORL     A, #10h        
+0170 800B             92                 SJMP    Output_Digit
+                      93     
+0172 B40205           94     Pos2:       CJNE    A, #02h, Pos3
+0175 E9               95                 MOV     A, R1         ; 1/10 second
+0176 4420             96                 ORL     A, #20h        
+0178 8003             97                 SJMP    Output_Digit
+                      98     
+017A E8               99     Pos3:       MOV     A, R0         ; 1/100 second
+017B 4430            100                 ORL     A, #30h        
+                     101     
+017D                 102     Output_Digit:
+017D F590            103                 MOV     P1, A          
+                     104     
+                     105                 ; Update display position
+017F EC              106                 MOV     A, R4
+0180 04              107                 INC     A              
+0181 B40402          108                 CJNE    A, #04h, Save_Pos
+0184 7400            109                 MOV     A, #00h        
+0186 FC              110     Save_Pos:   MOV     R4, A         
+                     111     
+0187 D0D0            112                 POP     PSW            
+0189 D0E0            113                 POP     ACC
+018B 32              114                 RETI
+                     115     
+018C C0E0            116     EXT0_ISR:   PUSH    ACC
+018E C0D0            117                 PUSH    PSW
+                     118                 
+                     119                 ; Check if this is the first interrupt
+0190 E520            120                 MOV     A, 20h
+0192 700B            121                 JNZ     Stop_Interval
+                     122     
+A51 MACRO ASSEMBLER  CLICKCOUNT                                                           03/26/2025 14:23:12 PAGE     3
+
+                     123                 ; First interrupt - start measuring
+0194 752001          124                 MOV     20h, #01h     ; Set measuring flag
+0197 752100          125                 MOV     21h, #00h     ; Reset high byte
+019A 752200          126                 MOV     22h, #00h     ; Reset low byte
+019D 8003            127                 SJMP    EXT0_ISR_Exit
+                     128     
+019F                 129     Stop_Interval:
+                     130                 ; Second interrupt - stop measuring and display
+019F 752000          131                 MOV     20h, #00h     ; Reset first interrupt flag
+                     132     
+01A2                 133     EXT0_ISR_Exit:
+01A2 D0D0            134                 POP     PSW
+01A4 D0E0            135                 POP     ACC
+01A6 32              136                 RETI
+                     137     
+                     138                 END
+A51 MACRO ASSEMBLER  CLICKCOUNT                                                           03/26/2025 14:23:12 PAGE     4
+
+SYMBOL TABLE LISTING
+------ ----- -------
+
+
+N A M E             T Y P E  V A L U E   ATTRIBUTES
+
+ACC. . . . . . . .  D ADDR   00E0H   A   
+B. . . . . . . . .  D ADDR   00F0H   A   
+DISPLAY_UPDATE . .  C ADDR   014BH   A   
+EA . . . . . . . .  B ADDR   00A8H.7 A   
+ET0. . . . . . . .  B ADDR   00A8H.1 A   
+EX0. . . . . . . .  B ADDR   00A8H.0 A   
+EXT0_ISR . . . . .  C ADDR   018CH   A   
+EXT0_ISR_EXIT. . .  C ADDR   01A2H   A   
+IT0. . . . . . . .  B ADDR   0088H.0 A   
+MAIN . . . . . . .  C ADDR   0100H   A   
+MAINLOOP . . . . .  C ADDR   012DH   A   
+OUTPUT_DIGIT . . .  C ADDR   017DH   A   
+P1 . . . . . . . .  D ADDR   0090H   A   
+POS1 . . . . . . .  C ADDR   016AH   A   
+POS2 . . . . . . .  C ADDR   0172H   A   
+POS3 . . . . . . .  C ADDR   017AH   A   
+PSW. . . . . . . .  D ADDR   00D0H   A   
+RS0. . . . . . . .  B ADDR   00D0H.3 A   
+RS1. . . . . . . .  B ADDR   00D0H.4 A   
+SAVE_POS . . . . .  C ADDR   0186H   A   
+SP . . . . . . . .  D ADDR   0081H   A   
+STOP_INTERVAL. . .  C ADDR   019FH   A   
+TF0. . . . . . . .  B ADDR   0088H.5 A   
+TH0. . . . . . . .  D ADDR   008CH   A   
+TIMER0_ISR . . . .  C ADDR   012FH   A   
+TL0. . . . . . . .  D ADDR   008AH   A   
+TMOD . . . . . . .  D ADDR   0089H   A   
+TR0. . . . . . . .  B ADDR   0088H.4 A   
+
+
+REGISTER BANK(S) USED: 0 
+
+
+ASSEMBLY COMPLETE.  0 WARNING(S), 0 ERROR(S)

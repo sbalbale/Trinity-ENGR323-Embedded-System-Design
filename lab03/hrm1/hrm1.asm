@@ -1,8 +1,8 @@
 ORG     0000h           
             AJMP    MAIN           
 
-            ORG     0013h          ; External Interrupt 1 vector
-            AJMP    EXT1_ISR           
+            ORG     0003h          ; External Interrupt 1 vector
+            AJMP    EXT0_ISR           
 
             ORG     000Bh          ; Timer 0 vector
             AJMP    Timer0_ISR
@@ -26,16 +26,16 @@ MAIN:       MOV     SP, #30h
             MOV     23h, #01h     ; First calculation flag (1=first press)
             MOV     24h, #00h     ; Status flags
             
-            ; Setup P3.3 as input for INT1
-            SETB    P3.3          ; Set P3.3 (INT1) as input with pull-up
+            ; Setup P3.2 as input for INT0
+            SETB    P3.2          ; Set P3.3 (INT1) as input with pull-up
             
             ; Setup External Interrupt 1
-            SETB    IT1           ; Falling edge triggered
-            SETB    EX1           ; Enable INT1
-            CLR     IE1           ; Clear any pending interrupt flag
+            SETB    IT0           ; Falling edge triggered
+            SETB    EX0           ; Enable INT0
+            CLR     IE0           ; Clear any pending interrupt flag
             
             ; Set interrupt priority (optional)
-            SETB    IP.2          ; Give INT1 high priority
+            ;SETB    IP.2          ; Give INT1 high priority
             
             ; Timer 0 setup for 5ms (12 MHz clock)
             MOV     TH0, #0ECh     
@@ -114,7 +114,7 @@ Save_Pos:   MOV     R4, A
             RETI
 
 ; External Interrupt 1 ISR - Calculate CPM on button press
-EXT1_ISR:   PUSH    ACC
+EXT0_ISR:   PUSH    ACC
             PUSH    PSW
             PUSH    B
             PUSH    DPH
@@ -124,7 +124,7 @@ EXT1_ISR:   PUSH    ACC
             
             ; Add a short debounce delay
             MOV     B, #50
-EXT1_Delay: DJNZ    B, EXT1_Delay
+EXT0_Delay: DJNZ    B, EXT0_Delay
 
             ; Check if this is the first press
             MOV     A, 23h
@@ -135,7 +135,7 @@ EXT1_Delay: DJNZ    B, EXT1_Delay
             MOV     20h, #00h     ; Reset counter low byte
             MOV     21h, #00h     ; Reset counter middle byte
             MOV     22h, #00h     ; Reset counter high byte
-            JMP    EXT1_Exit     ; Use SJMP instead of LJMP for short jump
+            JMP    EXT0_Exit     ; Use SJMP instead of LJMP for short jump
 
 Calculate_CPM:
             ; Calculate CPM = 12000 / timer_count
@@ -267,11 +267,11 @@ Reset_Timer:
             CLR     IE1           ; Clear any pending interrupt
             SETB    EA            ; Ensure global interrupts are enabled
 
-EXT1_Exit:  
+EXT0_Exit:  
             ; Add a small delay before returning to avoid switch bouncing
             MOV     B, #200       ; Longer debounce delay after processing
-EXT1_Exit_Delay: 
-            DJNZ    B, EXT1_Exit_Delay
+EXT0_Exit_Delay: 
+            DJNZ    B, EXT0_Exit_Delay
             
             POP     DPL
             POP     DPH
