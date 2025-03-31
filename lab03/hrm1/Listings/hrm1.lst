@@ -1,4 +1,4 @@
-A51 MACRO ASSEMBLER  HRM1                                                                 03/26/2025 16:46:31 PAGE     1
+A51 MACRO ASSEMBLER  HRM1                                                                 03/31/2025 16:38:02 PAGE     1
 
 
 MACRO ASSEMBLER A51 V8.2.7.0
@@ -12,10 +12,10 @@ LOC  OBJ            LINE     SOURCE
 0000 2100              2                 AJMP    MAIN           
                        3     
 0003                   4                 ORG     0003h          ; External Interrupt 0 vector
-0003 217C              5                 AJMP    EXT0_ISR           
+0003 2188              5                 AJMP    EXT0_ISR           
                        6     
 000B                   7                 ORG     000Bh          ; Timer 0 vector
-000B 213D              8                 AJMP    Timer0_ISR
+000B 2143              8                 AJMP    Timer0_ISR
                        9     
 0100                  10                 ORG     0100h          
 0100 758130           11     MAIN:       MOV     SP, #30h       
@@ -40,235 +40,477 @@ LOC  OBJ            LINE     SOURCE
 0122 752400           29                 MOV     24h, #00h     ; Temporary storage during calculation
 0125 752500           30                 MOV     25h, #00h     ; Temporary storage during calculation
 0128 752603           31                 MOV     26h, #03h     ; Number of clicks to average (configurable: 2 or 3)
-                      32                 
-                      33                 ; Timer 0 setup for 5ms
-012B 758CEC           34                 MOV     TH0, #0ECh     
-012E 758A78           35                 MOV     TL0, #078h
-0131 D28C             36                 SETB    TR0           ; Start Timer 0
-                      37                 
-                      38                 ; Setup External Interrupt 0
-0133 D288             39                 SETB    IT0           ; Falling edge triggered
-0135 D2A8             40                 SETB    EX0           ; Enable INT0
-                      41                 
-                      42                 ; Enable interrupts
-0137 D2A9             43                 SETB    ET0           ; Enable Timer 0 interrupt
-0139 D2AF             44                 SETB    EA            ; Enable global interrupts
-                      45     
-013B 80FE             46     MainLoop:   SJMP    MainLoop      ; Everything handled by interrupts
+012B 752700           32                 MOV     27h, #00h     ; New: Overflow counter for long intervals (>1.275s)
+012E 752800           33                 MOV     28h, #00h     ; New: Total overflow for averaging
+                      34                 
+                      35                 ; Timer 0 setup for 5ms
+0131 758CEC           36                 MOV     TH0, #0ECh     
+0134 758A78           37                 MOV     TL0, #078h
+0137 D28C             38                 SETB    TR0           ; Start Timer 0
+                      39                 
+                      40                 ; Setup External Interrupt 0
+0139 D288             41                 SETB    IT0           ; Falling edge triggered
+013B D2A8             42                 SETB    EX0           ; Enable INT0
+                      43                 
+                      44                 ; Enable interrupts
+013D D2A9             45                 SETB    ET0           ; Enable Timer 0 interrupt
+013F D2AF             46                 SETB    EA            ; Enable global interrupts
                       47     
-013D C0E0             48     Timer0_ISR: PUSH    ACC            
-013F C0D0             49                 PUSH    PSW
-                      50     
-                      51                 ; Reload timer for next 5ms
-0141 C28C             52                 CLR     TR0            
-0143 758CEC           53                 MOV     TH0, #0ECh     
-0146 758A8C           54                 MOV     TL0, #08Ch     
-0149 C28D             55                 CLR     TF0            
-014B D28C             56                 SETB    TR0            
-A51 MACRO ASSEMBLER  HRM1                                                                 03/26/2025 16:46:31 PAGE     2
+0141 80FE             48     MainLoop:   SJMP    MainLoop      ; Everything handled by interrupts
+                      49     
+0143 C0E0             50     Timer0_ISR: PUSH    ACC            
+0145 C0D0             51                 PUSH    PSW
+                      52     
+                      53                 ; Reload timer for next 5ms
+0147 C28C             54                 CLR     TR0            
+0149 758CEC           55                 MOV     TH0, #0ECh     
+014C 758A8C           56                 MOV     TL0, #08Ch     
+A51 MACRO ASSEMBLER  HRM1                                                                 03/31/2025 16:38:02 PAGE     2
 
-                      57     
-                      58                 ; Check if we're in timing mode
-014D E520             59                 MOV     A, 20h
-014F 6002             60                 JZ      Display_Update  ; If 0, we're not timing yet
-                      61                 
-                      62                 ; We're timing between clicks
-0151 0521             63                 INC     21h           ; Increment the time counter
-                      64     
-0153                  65     Display_Update:
-                      66                 ; Display logic
-0153 EC               67                 MOV     A, R4          
-0154 B40003           68                 CJNE    A, #00h, Pos1
-0157 EB               69                 MOV     A, R3         ; Thousands digit
-0158 8013             70                 SJMP    Output_Digit
+014F C28D             57                 CLR     TF0            
+0151 D28C             58                 SETB    TR0            
+                      59     
+                      60                 ; Check if we're in timing mode
+0153 E520             61                 MOV     A, 20h
+0155 6008             62                 JZ      Display_Update  ; If 0, we're not timing yet
+                      63                 
+                      64                 ; We're timing between clicks
+0157 0521             65                 INC     21h           ; Increment the time counter
+                      66                 
+                      67                 ; Check if time counter overflows
+0159 E521             68                 MOV     A, 21h
+015B 7002             69                 JNZ     Display_Update ; If not zero, no overflow
+015D 0527             70                 INC     27h           ; Increment overflow counter when 21h rolls over to 0
                       71     
-015A B40105           72     Pos1:       CJNE    A, #01h, Pos2
-015D EA               73                 MOV     A, R2         ; Hundreds digit
-015E 4410             74                 ORL     A, #10h        
-0160 800B             75                 SJMP    Output_Digit
-                      76     
-0162 B40205           77     Pos2:       CJNE    A, #02h, Pos3
-0165 E9               78                 MOV     A, R1         ; Tens digit
-0166 4420             79                 ORL     A, #20h        
-0168 8003             80                 SJMP    Output_Digit
-                      81     
-016A E8               82     Pos3:       MOV     A, R0         ; Ones digit
-016B 4430             83                 ORL     A, #30h        
-                      84     
-016D                  85     Output_Digit:
-016D F590             86                 MOV     P1, A          
-                      87     
-                      88                 ; Update display position
-016F EC               89                 MOV     A, R4
-0170 04               90                 INC     A              
-0171 B40402           91                 CJNE    A, #04h, Save_Pos
-0174 7400             92                 MOV     A, #00h        
-0176 FC               93     Save_Pos:   MOV     R4, A         
+015F                  72     Display_Update:
+                      73                 ; Display logic
+015F EC               74                 MOV     A, R4          
+0160 B40003           75                 CJNE    A, #00h, Pos1
+0163 EB               76                 MOV     A, R3         ; Thousands digit
+0164 8013             77                 SJMP    Output_Digit
+                      78     
+0166 B40105           79     Pos1:       CJNE    A, #01h, Pos2
+0169 EA               80                 MOV     A, R2         ; Hundreds digit
+016A 4410             81                 ORL     A, #10h        
+016C 800B             82                 SJMP    Output_Digit
+                      83     
+016E B40205           84     Pos2:       CJNE    A, #02h, Pos3
+0171 E9               85                 MOV     A, R1         ; Tens digit
+0172 4420             86                 ORL     A, #20h        
+0174 8003             87                 SJMP    Output_Digit
+                      88     
+0176 E8               89     Pos3:       MOV     A, R0         ; Ones digit
+0177 4430             90                 ORL     A, #30h        
+                      91     
+0179                  92     Output_Digit:
+0179 F590             93                 MOV     P1, A          
                       94     
-0177 D0D0             95                 POP     PSW            
-0179 D0E0             96                 POP     ACC
-017B 32               97                 RETI
-                      98     
-017C C0E0             99     EXT0_ISR:   PUSH    ACC
-017E C0D0            100                 PUSH    PSW
-                     101                 
-                     102                 ; Check current state
-0180 E520            103                 MOV     A, 20h
-0182 700E            104                 JNZ     Handle_Subsequent_Click  ; If not 0, we've had clicks before
-                     105                 
-                     106                 ; First click ever - just start timing
-0184 752001          107                 MOV     20h, #01h     ; Set to "first click received" state
-0187 752100          108                 MOV     21h, #00h     ; Reset time counter
-018A 752200          109                 MOV     22h, #00h     ; Clear total time
-018D 752300          110                 MOV     23h, #00h     ; Clear click count
-0190 8074            111                 SJMP    EXT0_ISR_Exit
+                      95                 ; Update display position
+017B EC               96                 MOV     A, R4
+017C 04               97                 INC     A              
+017D B40402           98                 CJNE    A, #04h, Save_Pos
+0180 7400             99                 MOV     A, #00h        
+0182 FC              100     Save_Pos:   MOV     R4, A         
+                     101     
+0183 D0D0            102                 POP     PSW            
+0185 D0E0            103                 POP     ACC
+0187 32              104                 RETI
+                     105     
+0188 C0E0            106     EXT0_ISR:   PUSH    ACC
+018A C0D0            107                 PUSH    PSW
+                     108                 
+                     109                 ; Check current state
+018C E520            110                 MOV     A, 20h
+018E 7015            111                 JNZ     Handle_Subsequent_Click  ; If not 0, we've had clicks before
                      112                 
-0192                 113     Handle_Subsequent_Click:
-                     114                 ; This is a subsequent click
-                     115                 
-                     116                 ; First, check if time is too small to prevent errors
-0192 E521            117                 MOV     A, 21h
-0194 B40C08          118                 CJNE    A, #12, Valid_Time  ; 12 * 5ms = 60ms minimum (avoid impossibly fast ra
-                             tes)
-0197 752001          119                 MOV     20h, #01h     ; Reset to first-click state if click too fast
-019A 752100          120                 MOV     21h, #00h     ; Reset counter
-019D 8067            121                 SJMP    EXT0_ISR_Exit
-A51 MACRO ASSEMBLER  HRM1                                                                 03/26/2025 16:46:31 PAGE     3
+                     113                 ; First click ever - just start timing
+0190 752001          114                 MOV     20h, #01h     ; Set to "first click received" state
+0193 752100          115                 MOV     21h, #00h     ; Reset time counter
+0196 752200          116                 MOV     22h, #00h     ; Clear total time
+0199 752300          117                 MOV     23h, #00h     ; Clear click count
+019C 752700          118                 MOV     27h, #00h     ; Clear overflow counter
+019F 752800          119                 MOV     28h, #00h     ; Clear total overflow
+01A2 02031E          120                 LJMP    EXT0_ISR_Exit
+                     121                 
+01A5                 122     Handle_Subsequent_Click:
+A51 MACRO ASSEMBLER  HRM1                                                                 03/31/2025 16:38:02 PAGE     3
 
-                     122                 
-019F                 123     Valid_Time:
-019F 4065            124                 JC      EXT0_ISR_Exit  ; If less than 12 (carry set), click too fast - ignore
-                     125                 
-                     126                 ; Add this interval to total time
-01A1 E522            127                 MOV     A, 22h
-01A3 2521            128                 ADD     A, 21h
-01A5 F522            129                 MOV     22h, A
-                     130                 
-                     131                 ; Increment click count
-01A7 0523            132                 INC     23h
-                     133                 
-                     134                 ; Check if we have enough clicks for averaging
-01A9 E523            135                 MOV     A, 23h
-01AB B52610          136                 CJNE    A, 26h, Not_Enough_Clicks
-                     137                 
-                     138                 ; We have enough clicks to calculate average
-                     139                 
-                     140                 ; Calculate average interval: 22h / 23h (total time / click count)
-01AE E522            141                 MOV     A, 22h
-01B0 8523F0          142                 MOV     B, 23h
-01B3 84              143                 DIV     AB            ; A = average interval
-                     144                 
-                     145                 ; Now calculate BPM = 12000 / average_interval
-01B4 752478          146                 MOV     24h, #120     ; Low byte of 12000
-01B7 75252F          147                 MOV     25h, #47      ; High byte of 12000 (actually 12120 for easier calculati
-                             on)
-01BA F5F0            148                 MOV     B, A          ; B = average interval
-01BC 8009            149                 SJMP    Calculate_BPM
-                     150                 
-01BE                 151     Not_Enough_Clicks:
-                     152                 ; Calculate BPM based on current interval
-01BE 752478          153                 MOV     24h, #120     ; Low byte of 12000
-01C1 75252F          154                 MOV     25h, #47      ; High byte of 12000
-01C4 8521F0          155                 MOV     B, 21h        ; B = current interval
-                     156                 
-01C7                 157     Calculate_BPM:
-                     158                 ; Using repeated subtraction to simulate division
-                     159                 ; Calculate 12000 / B
-01C7 752200          160                 MOV     22h, #0       ; Initialize result quotient
-01CA 752300          161                 MOV     23h, #0       ; Initialize hundreds place
-                     162                 
-01CD                 163     DivLoop:
-                     164                 ; Check if we can subtract B from 25h:24h
-01CD C3              165                 CLR     C
-01CE E524            166                 MOV     A, 24h
-01D0 95F0            167                 SUBB    A, B
-01D2 F524            168                 MOV     24h, A        ; Store result back
+                     123                 ; This is a subsequent click
+                     124                 
+                     125                 ; First, check if time is too small to prevent errors
+01A5 E521            126                 MOV     A, 21h
+01A7 B40C02          127                 CJNE    A, #12, Check_Overflow  ; 12 * 5ms = 60ms minimum (avoid impossibly fas
+                             t rates)
+01AA 400F            128                 JC      Too_Fast      ; If less than 12 (carry set), click too fast
+                     129     
+01AC                 130     Check_Overflow:
+                     131                 ; Check if we have any overflow counts
+01AC E527            132                 MOV     A, 27h
+01AE 7017            133                 JNZ     Valid_Time    ; If overflow count > 0, time is definitely valid
+                     134                 
+                     135                 ; No overflow, check if base time count is valid
+01B0 E521            136                 MOV     A, 21h
+01B2 B40C04          137                 CJNE    A, #12, Valid_Time_Check
+01B5 4004            138                 JC      Too_Fast      ; If less than 12, too fast
+01B7 800E            139                 SJMP    Valid_Time
+                     140                 
+01B9                 141     Valid_Time_Check:
+01B9 500C            142                 JNC     Valid_Time    ; If ≥ 12, time is valid
+                     143                 
+01BB                 144     Too_Fast:   
+01BB 752001          145                 MOV     20h, #01h     ; Reset to first-click state if click too fast
+01BE 752100          146                 MOV     21h, #00h     ; Reset counter
+01C1 752700          147                 MOV     27h, #00h     ; Reset overflow counter
+01C4 02031E          148                 LJMP    EXT0_ISR_Exit
+                     149                 
+01C7                 150     Valid_Time:
+                     151                 ; Add this interval to total time
+01C7 E522            152                 MOV     A, 22h
+01C9 2521            153                 ADD     A, 21h
+01CB F522            154                 MOV     22h, A
+                     155                 
+                     156                 ; Add overflow to total overflow
+01CD E528            157                 MOV     A, 28h
+01CF 2527            158                 ADD     A, 27h
+01D1 F528            159                 MOV     28h, A
+                     160                 
+                     161                 ; Increment click count
+01D3 0523            162                 INC     23h
+                     163                 
+                     164                 ; Check if we have enough clicks for averaging
+01D5 E523            165                 MOV     A, 23h
+01D7 B52615          166                 CJNE    A, 26h, Not_Enough_Clicks
+                     167                 
+                     168                 ; We have enough clicks to calculate average
                      169                 
-01D4 E525            170                 MOV     A, 25h
-01D6 9400            171                 SUBB    A, #0         ; Subtract borrow
-01D8 F525            172                 MOV     25h, A
+                     170                 ; If we have overflow, use extended calculation
+01DA E528            171                 MOV     A, 28h
+01DC 7063            172                 JNZ     Extended_Calculation
                      173                 
-01DA 400E            174                 JC      EndDiv        ; If carry, we're done
-                     175                 
-                     176                 ; Increment result
-01DC 0522            177                 INC     22h
-01DE E522            178                 MOV     A, 22h
-01E0 B464EA          179                 CJNE    A, #100, DivLoop   ; Keep going until quotient reaches 100
-01E3 752200          180                 MOV     22h, #0            ; Reset quotient to 0
-01E6 0523            181                 INC     23h                ; Increment hundreds place
-01E8 80E3            182                 SJMP    DivLoop
-                     183                 
-01EA                 184     EndDiv:
-                     185                 ; Now convert result to BCD for display
-01EA E522            186                 MOV     A, 22h        ; Get quotient (0-99 portion)
-A51 MACRO ASSEMBLER  HRM1                                                                 03/26/2025 16:46:31 PAGE     4
+                     174                 ; Standard calculation (no overflow)
+01DE E522            175                 MOV     A, 22h
+01E0 8523F0          176                 MOV     B, 23h
+01E3 84              177                 DIV     AB            ; A = average interval
+                     178                 
+                     179                 ; Now calculate BPM = 12000 / average_interval
+01E4 752478          180                 MOV     24h, #120     ; Low byte of 12000
+01E7 75252F          181                 MOV     25h, #47      ; High byte of 12000 (actually 12120 for easier calculati
+                             on)
+01EA F5F0            182                 MOV     B, A          ; B = average interval
+01EC 0202D9          183                 LJMP    Calculate_BPM
+                     184                 
+                     185                             
+01EF                 186     Not_Enough_Clicks:
+A51 MACRO ASSEMBLER  HRM1                                                                 03/31/2025 16:38:02 PAGE     4
 
-01EC 75F00A          187                 MOV     B, #10
-01EF 84              188                 DIV     AB
-01F0 F9              189                 MOV     R1, A         ; Tens digit
-01F1 A8F0            190                 MOV     R0, B         ; Ones digit
-                     191                 
-                     192                 ; Handle hundreds place
-01F3 E523            193                 MOV     A, 23h
-01F5 FA              194                 MOV     R2, A         ; Hundreds digit
-01F6 7B00            195                 MOV     R3, #0        ; Thousands digit
-                     196                 
-                     197                 ; Reset for next measurement
-01F8 752100          198                 MOV     21h, #00h     ; Reset interval timer for next click
-                     199                 
-                     200                 ; If we've reached our desired clicks for average, reset the averaging
-01FB E523            201                 MOV     A, 23h
-01FD B52606          202                 CJNE    A, 26h, EXT0_ISR_Exit
-0200 752200          203                 MOV     22h, #00h     ; Reset total time
-0203 752300          204                 MOV     23h, #00h     ; Reset click count
-                     205     
-0206                 206     EXT0_ISR_Exit:
-0206 D0D0            207                 POP     PSW
-0208 D0E0            208                 POP     ACC
-020A 32              209                 RETI
-                     210     
-                     211                 END
-A51 MACRO ASSEMBLER  HRM1                                                                 03/26/2025 16:46:31 PAGE     5
+                     187                 ; Check if we have overflow for this single click
+01EF E527            188                 MOV     A, 27h
+01F1 7060            189                 JNZ     Extended_Single_Calculation
+                     190                 
+                     191                 ; Standard calculation for single click (no overflow)
+                     192                 ; Calculate BPM based on current interval
+01F3 752478          193                 MOV     24h, #120     ; Low byte of 12000
+01F6 75252F          194                 MOV     25h, #47      ; High byte of 12000
+01F9 8521F0          195                 MOV     B, 21h        ; B = current interval
+01FC 0202D9          196                 LJMP    Calculate_BPM
+                     197                     
+                     198                 
+01FF                 199     Check_Moderate_Overflow:
+                     200                 ; For moderate overflows, use more accurate calculation
+                     201                 ; Each overflow is 255 units of 5ms = 1.275 seconds
+                     202                 ; We use formula: BPM = 60000 / ((overflow * 1275) + (remaining_count * 5))
+                     203                 
+                     204                 ; First, calculate (overflow * 1275)
+01FF E528            205                 MOV     A, 28h        ; Load overflow count
+0201 75F0FF          206                 MOV     B, #255       ; Multiply by 255 (using 5 * 255 = 1275)
+0204 A4              207                 MUL     AB            ; Result in B:A
+0205 F524            208                 MOV     24h, A        ; Store low byte of result
+0207 85F025          209                 MOV     25h, B        ; Store high byte of result
+                     210                 
+                     211                 ; Now multiply by 5 to get 1275 * overflow
+020A E524            212                 MOV     A, 24h
+020C 75F005          213                 MOV     B, #5
+020F A4              214                 MUL     AB            ; Result in B:A
+0210 F524            215                 MOV     24h, A        ; Store low byte
+0212 AFF0            216                 MOV     R7, B         ; Store high byte temporarily
+                     217                 
+0214 E525            218                 MOV     A, 25h
+0216 75F005          219                 MOV     B, #5
+0219 A4              220                 MUL     AB            ; Result in B:A
+021A 2F              221                 ADD     A, R7         ; Add carried high byte from previous multiply
+021B F525            222                 MOV     25h, A        ; Store middle byte
+021D AFF0            223                 MOV     R7, B         ; Store highest byte
+                     224                 
+                     225                 ; Now add (remaining_count * 5)
+021F E522            226                 MOV     A, 22h        ; Load remaining time count
+0221 75F005          227                 MOV     B, #5
+0224 A4              228                 MUL     AB            ; Result in B:A
+0225 2524            229                 ADD     A, 24h        ; Add to low byte of result
+0227 F524            230                 MOV     24h, A
+0229 E5F0            231                 MOV     A, B          ; Get high byte of multiply
+022B 3525            232                 ADDC    A, 25h        ; Add with carry to middle byte
+022D F525            233                 MOV     25h, A
+022F 7400            234                 MOV     A, #0
+0231 3F              235                 ADDC    A, R7         ; Add carry to highest byte
+0232 FF              236                 MOV     R7, A         ; R7 now holds highest byte
+                     237                 
+                     238                 ; Now we have total_time_in_ms in R7:25h:24h
+                     239                 ; We need to divide 60000 by this value
+                     240                 ; Use a simplified approach based on the magnitude
+                     241                 
+                     242                 ; Check if the total time is very large (highest byte > 0)
+0233 EF              243                 MOV     A, R7
+0234 602D            244                 JZ      Moderate_Time
+                     245                 
+                     246                 ; Very large time - BPM is likely < 10
+                     247                 ; Just display a low BPM
+0236 7B00            248                 MOV     R3, #0        ; Thousands = 0
+0238 7A00            249                 MOV     R2, #0        ; Hundreds = 0
+023A 7900            250                 MOV     R1, #0        ; Tens = 0
+023C 7808            251                 MOV     R0, #8        ; Ones = 8 (arbitrary low value)
+023E 02030A          252                 LJMP    Reset_For_Next
+A51 MACRO ASSEMBLER  HRM1                                                                 03/31/2025 16:38:02 PAGE     5
+
+                     253                             
+0241                 254     Extended_Calculation:
+                     255                 ; For low heart rates with overflow
+                     256                 ; First check if overflow is very large (indicating extremely slow rate)
+0241 E528            257                 MOV     A, 28h
+0243 B414B9          258                 CJNE    A, #20, Check_Moderate_Overflow  ; 20 overflows = ~5 seconds
+0246 40B7            259                 JC      Check_Moderate_Overflow          ; If < 20, continue
+                     260                 
+                     261                 ; Very low heart rate (< 12 BPM), just set to minimum displayable
+0248 7B00            262                 MOV     R3, #0        ; Thousands = 0
+024A 7A00            263                 MOV     R2, #0        ; Hundreds = 0
+024C 7901            264                 MOV     R1, #1        ; Tens = 1
+024E 7800            265                 MOV     R0, #0        ; Ones = 0
+0250 02030A          266                 LJMP    Reset_For_Next
+                     267                 
+0253                 268     Extended_Single_Calculation:
+                     269                 ; Handle single click with overflow
+                     270                 ; Check if overflow is very large (indicating extremely slow rate)
+0253 B41455          271                 CJNE    A, #20, Check_Moderate_Single  ; 20 overflows = ~5 seconds
+0256 4053            272                 JC      Check_Moderate_Single          ; If < 20, continue
+                     273                 
+                     274                 ; Very low heart rate (< 12 BPM), just set to minimum displayable
+0258 7B00            275                 MOV     R3, #0        ; Thousands = 0
+025A 7A00            276                 MOV     R2, #0        ; Hundreds = 0
+025C 7901            277                 MOV     R1, #1        ; Tens = 1
+025E 7800            278                 MOV     R0, #0        ; Ones = 0
+0260 02030A          279                 LJMP    Reset_For_Next
+                     280                             
+0263                 281     Moderate_Time:
+                     282                 ; Check if middle byte is large
+0263 E525            283                 MOV     A, 25h
+0265 6031            284                 JZ      Small_Time
+0267 B4040D          285                 CJNE    A, #4, Check_Med_Range
+026A 400D            286                 JC      Med_Range     ; If < 4, medium range
+                     287                 
+                     288                 ; Large middle byte - very low BPM
+026C 7B00            289                 MOV     R3, #0
+026E 7A00            290                 MOV     R2, #0
+0270 7901            291                 MOV     R1, #1
+0272 7805            292                 MOV     R0, #5        ; Display 15 BPM
+0274 02030A          293                 LJMP    Reset_For_Next
+                     294                 
+0277                 295     Check_Med_Range:
+0277 5014            296                 JNC     Large_Med_Range ; If >= 4, also low range
+                     297                 
+0279                 298     Med_Range:  ; Middle byte between 1-3, BPM around 20-40
+0279 741E            299                 MOV     A, #30        ; Approximate BPM value
+027B 8525F0          300                 MOV     B, 25h        ; Divide by middle byte for rough estimate
+027E 84              301                 DIV     AB
+027F 75F00A          302                 MOV     B, #10
+0282 84              303                 DIV     AB
+0283 F9              304                 MOV     R1, A         ; Tens digit
+0284 A8F0            305                 MOV     R0, B         ; Ones digit
+0286 7A00            306                 MOV     R2, #0        ; Hundreds = 0
+0288 7B00            307                 MOV     R3, #0        ; Thousands = 0
+028A 02030A          308                 LJMP    Reset_For_Next
+                     309                 
+028D                 310     Large_Med_Range:
+                     311                 ; Middle byte between 4-255, very low BPM
+028D 7B00            312                 MOV     R3, #0
+028F 7A00            313                 MOV     R2, #0
+0291 7901            314                 MOV     R1, #1        ; Tens = 1
+0293 7802            315                 MOV     R0, #2        ; Ones = 2
+0295 02030A          316                 LJMP    Reset_For_Next
+                     317                 
+0298                 318     Small_Time:
+A51 MACRO ASSEMBLER  HRM1                                                                 03/31/2025 16:38:02 PAGE     6
+
+                     319                 ; Only low byte is significant, can do better calculation
+                     320                 ; BPM ≈ 300 / low_byte for single overflow cases
+0298 74FA            321                 MOV     A, #250       ; Use 250 as constant instead of 300 (better approximatio
+                             n)
+029A 8524F0          322                 MOV     B, 24h
+029D 84              323                 DIV     AB
+                     324                 
+                     325                 ; Convert result to BCD for display
+029E 75F00A          326                 MOV     B, #10
+02A1 84              327                 DIV     AB
+02A2 F9              328                 MOV     R1, A         ; Tens digit
+02A3 A8F0            329                 MOV     R0, B         ; Ones digit
+02A5 7A00            330                 MOV     R2, #0        ; Hundreds digit
+02A7 7B00            331                 MOV     R3, #0        ; Thousands digit
+                     332                 
+02A9 805F            333                 SJMP    Reset_For_Next
+                     334                 
+02AB                 335     Check_Moderate_Single:
+                     336                 ; Similar improved calculation for single clicks with overflow
+                     337                 ; Using approximation formula based on overflow magnitude
+                     338                 
+                     339                 ; First check if overflow is large
+02AB B4040C          340                 CJNE    A, #4, Check_Single_Med
+02AE 400C            341                 JC      Single_Med    ; If < 4, medium range
+                     342                 
+                     343                 ; Large overflow - very low BPM
+02B0 7B00            344                 MOV     R3, #0
+02B2 7A00            345                 MOV     R2, #0
+02B4 7901            346                 MOV     R1, #1
+02B6 7805            347                 MOV     R0, #5        ; Display 15 BPM
+02B8 8050            348                 SJMP    Reset_For_Next
+                     349                 
+02BA                 350     Check_Single_Med:
+02BA 5013            351                 JNC     Single_Large_Med ; If >= 4, also low range
+                     352                 
+02BC                 353     Single_Med: ; Overflow between 1-3, BPM around 20-40
+02BC 741E            354                 MOV     A, #30        ; Approximate BPM value
+02BE 8527F0          355                 MOV     B, 27h        ; Divide by overflow count for rough estimate
+02C1 84              356                 DIV     AB
+02C2 75F00A          357                 MOV     B, #10
+02C5 84              358                 DIV     AB
+02C6 F9              359                 MOV     R1, A         ; Tens digit
+02C7 A8F0            360                 MOV     R0, B         ; Ones digit
+02C9 7A00            361                 MOV     R2, #0        ; Hundreds = 0
+02CB 7B00            362                 MOV     R3, #0        ; Thousands = 0
+02CD 803B            363                 SJMP    Reset_For_Next
+                     364                 
+02CF                 365     Single_Large_Med:
+                     366                 ; Overflow between 4-255, very low BPM
+02CF 7B00            367                 MOV     R3, #0
+02D1 7A00            368                 MOV     R2, #0
+02D3 7901            369                 MOV     R1, #1        ; Tens = 1
+02D5 7802            370                 MOV     R0, #2        ; Ones = 2
+02D7 8031            371                 SJMP    Reset_For_Next
+                     372                 
+02D9                 373     Calculate_BPM:
+                     374                 ; Using repeated subtraction to simulate division
+                     375                 ; Calculate 12000 / B
+02D9 752200          376                 MOV     22h, #0       ; Initialize result quotient
+02DC 752300          377                 MOV     23h, #0       ; Initialize hundreds place
+                     378                 
+02DF                 379     DivLoop:
+                     380                 ; Check if we can subtract B from 25h:24h
+02DF C3              381                 CLR     C
+02E0 E524            382                 MOV     A, 24h
+02E2 95F0            383                 SUBB    A, B
+A51 MACRO ASSEMBLER  HRM1                                                                 03/31/2025 16:38:02 PAGE     7
+
+02E4 F524            384                 MOV     24h, A        ; Store result back
+                     385                 
+02E6 E525            386                 MOV     A, 25h
+02E8 9400            387                 SUBB    A, #0         ; Subtract borrow
+02EA F525            388                 MOV     25h, A
+                     389                 
+02EC 400E            390                 JC      EndDiv        ; If carry, we're done
+                     391                 
+                     392                 ; Increment result
+02EE 0522            393                 INC     22h
+02F0 E522            394                 MOV     A, 22h
+02F2 B464EA          395                 CJNE    A, #100, DivLoop   ; Keep going until quotient reaches 100
+02F5 752200          396                 MOV     22h, #0            ; Reset quotient to 0
+02F8 0523            397                 INC     23h                ; Increment hundreds place
+02FA 80E3            398                 SJMP    DivLoop
+                     399                 
+02FC                 400     EndDiv:
+                     401                 ; Now convert result to BCD for display
+02FC E522            402                 MOV     A, 22h        ; Get quotient (0-99 portion)
+02FE 75F00A          403                 MOV     B, #10
+0301 84              404                 DIV     AB
+0302 F9              405                 MOV     R1, A         ; Tens digit
+0303 A8F0            406                 MOV     R0, B         ; Ones digit
+                     407                 
+                     408                 ; Handle hundreds place
+0305 E523            409                 MOV     A, 23h
+0307 FA              410                 MOV     R2, A         ; Hundreds digit
+0308 7B00            411                 MOV     R3, #0        ; Thousands digit
+                     412                 
+030A                 413     Reset_For_Next:
+                     414                 ; Reset for next measurement
+030A 752100          415                 MOV     21h, #00h     ; Reset interval timer for next click
+030D 752700          416                 MOV     27h, #00h     ; Reset overflow counter
+                     417                 
+                     418                 ; If we've reached our desired clicks for average, reset the averaging
+0310 E523            419                 MOV     A, 23h
+0312 B52609          420                 CJNE    A, 26h, EXT0_ISR_Exit
+0315 752200          421                 MOV     22h, #00h     ; Reset total time
+0318 752300          422                 MOV     23h, #00h     ; Reset click count
+031B 752800          423                 MOV     28h, #00h     ; Reset total overflow
+                     424     
+031E                 425     EXT0_ISR_Exit:
+031E D0D0            426                 POP     PSW
+0320 D0E0            427                 POP     ACC
+0322 32              428                 RETI
+                     429     
+                     430                 END
+A51 MACRO ASSEMBLER  HRM1                                                                 03/31/2025 16:38:02 PAGE     8
 
 SYMBOL TABLE LISTING
 ------ ----- -------
 
 
-N A M E                  T Y P E  V A L U E   ATTRIBUTES
+N A M E                      T Y P E  V A L U E   ATTRIBUTES
 
-ACC . . . . . . . . . .  D ADDR   00E0H   A   
-B . . . . . . . . . . .  D ADDR   00F0H   A   
-CALCULATE_BPM . . . . .  C ADDR   01C7H   A   
-DISPLAY_UPDATE. . . . .  C ADDR   0153H   A   
-DIVLOOP . . . . . . . .  C ADDR   01CDH   A   
-EA. . . . . . . . . . .  B ADDR   00A8H.7 A   
-ENDDIV. . . . . . . . .  C ADDR   01EAH   A   
-ET0 . . . . . . . . . .  B ADDR   00A8H.1 A   
-EX0 . . . . . . . . . .  B ADDR   00A8H.0 A   
-EXT0_ISR. . . . . . . .  C ADDR   017CH   A   
-EXT0_ISR_EXIT . . . . .  C ADDR   0206H   A   
-HANDLE_SUBSEQUENT_CLICK  C ADDR   0192H   A   
-IT0 . . . . . . . . . .  B ADDR   0088H.0 A   
-MAIN. . . . . . . . . .  C ADDR   0100H   A   
-MAINLOOP. . . . . . . .  C ADDR   013BH   A   
-NOT_ENOUGH_CLICKS . . .  C ADDR   01BEH   A   
-OUTPUT_DIGIT. . . . . .  C ADDR   016DH   A   
-P1. . . . . . . . . . .  D ADDR   0090H   A   
-POS1. . . . . . . . . .  C ADDR   015AH   A   
-POS2. . . . . . . . . .  C ADDR   0162H   A   
-POS3. . . . . . . . . .  C ADDR   016AH   A   
-PSW . . . . . . . . . .  D ADDR   00D0H   A   
-RS0 . . . . . . . . . .  B ADDR   00D0H.3 A   
-RS1 . . . . . . . . . .  B ADDR   00D0H.4 A   
-SAVE_POS. . . . . . . .  C ADDR   0176H   A   
-SP. . . . . . . . . . .  D ADDR   0081H   A   
-TF0 . . . . . . . . . .  B ADDR   0088H.5 A   
-TH0 . . . . . . . . . .  D ADDR   008CH   A   
-TIMER0_ISR. . . . . . .  C ADDR   013DH   A   
-TL0 . . . . . . . . . .  D ADDR   008AH   A   
-TMOD. . . . . . . . . .  D ADDR   0089H   A   
-TR0 . . . . . . . . . .  B ADDR   0088H.4 A   
-VALID_TIME. . . . . . .  C ADDR   019FH   A   
+ACC . . . . . . . . . . . .  D ADDR   00E0H   A   
+B . . . . . . . . . . . . .  D ADDR   00F0H   A   
+CALCULATE_BPM . . . . . . .  C ADDR   02D9H   A   
+CHECK_MED_RANGE . . . . . .  C ADDR   0277H   A   
+CHECK_MODERATE_OVERFLOW . .  C ADDR   01FFH   A   
+CHECK_MODERATE_SINGLE . . .  C ADDR   02ABH   A   
+CHECK_OVERFLOW. . . . . . .  C ADDR   01ACH   A   
+CHECK_SINGLE_MED. . . . . .  C ADDR   02BAH   A   
+DISPLAY_UPDATE. . . . . . .  C ADDR   015FH   A   
+DIVLOOP . . . . . . . . . .  C ADDR   02DFH   A   
+EA. . . . . . . . . . . . .  B ADDR   00A8H.7 A   
+ENDDIV. . . . . . . . . . .  C ADDR   02FCH   A   
+ET0 . . . . . . . . . . . .  B ADDR   00A8H.1 A   
+EX0 . . . . . . . . . . . .  B ADDR   00A8H.0 A   
+EXT0_ISR. . . . . . . . . .  C ADDR   0188H   A   
+EXT0_ISR_EXIT . . . . . . .  C ADDR   031EH   A   
+EXTENDED_CALCULATION. . . .  C ADDR   0241H   A   
+EXTENDED_SINGLE_CALCULATION  C ADDR   0253H   A   
+HANDLE_SUBSEQUENT_CLICK . .  C ADDR   01A5H   A   
+IT0 . . . . . . . . . . . .  B ADDR   0088H.0 A   
+LARGE_MED_RANGE . . . . . .  C ADDR   028DH   A   
+MAIN. . . . . . . . . . . .  C ADDR   0100H   A   
+MAINLOOP. . . . . . . . . .  C ADDR   0141H   A   
+MED_RANGE . . . . . . . . .  C ADDR   0279H   A   
+MODERATE_TIME . . . . . . .  C ADDR   0263H   A   
+NOT_ENOUGH_CLICKS . . . . .  C ADDR   01EFH   A   
+OUTPUT_DIGIT. . . . . . . .  C ADDR   0179H   A   
+P1. . . . . . . . . . . . .  D ADDR   0090H   A   
+POS1. . . . . . . . . . . .  C ADDR   0166H   A   
+POS2. . . . . . . . . . . .  C ADDR   016EH   A   
+POS3. . . . . . . . . . . .  C ADDR   0176H   A   
+PSW . . . . . . . . . . . .  D ADDR   00D0H   A   
+RESET_FOR_NEXT. . . . . . .  C ADDR   030AH   A   
+RS0 . . . . . . . . . . . .  B ADDR   00D0H.3 A   
+RS1 . . . . . . . . . . . .  B ADDR   00D0H.4 A   
+SAVE_POS. . . . . . . . . .  C ADDR   0182H   A   
+SINGLE_LARGE_MED. . . . . .  C ADDR   02CFH   A   
+SINGLE_MED. . . . . . . . .  C ADDR   02BCH   A   
+SMALL_TIME. . . . . . . . .  C ADDR   0298H   A   
+SP. . . . . . . . . . . . .  D ADDR   0081H   A   
+TF0 . . . . . . . . . . . .  B ADDR   0088H.5 A   
+TH0 . . . . . . . . . . . .  D ADDR   008CH   A   
+TIMER0_ISR. . . . . . . . .  C ADDR   0143H   A   
+TL0 . . . . . . . . . . . .  D ADDR   008AH   A   
+TMOD. . . . . . . . . . . .  D ADDR   0089H   A   
+TOO_FAST. . . . . . . . . .  C ADDR   01BBH   A   
+TR0 . . . . . . . . . . . .  B ADDR   0088H.4 A   
+VALID_TIME. . . . . . . . .  C ADDR   01C7H   A   
+VALID_TIME_CHECK. . . . . .  C ADDR   01B9H   A   
 
 
 REGISTER BANK(S) USED: 0 
