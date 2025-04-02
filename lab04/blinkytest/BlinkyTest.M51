@@ -1,0 +1,167 @@
+BL51 BANKED LINKER/LOCATER V6.22              04/02/2025  15:27:58  PAGE 1
+
+
+BL51 BANKED LINKER/LOCATER V6.22, INVOKED BY:
+C:\KEIL\C51\BIN\BL51.EXE C:\Users\seanb\Documents\Trinity-ENGR323-Embedded-Sys
+>> tem-Design\lab04\blinkytest\SingleTone.obj TO C:\Users\seanb\Documents\Trin
+>> ity-ENGR323-Embedded-System-Design\lab04\blinkytest\BlinkyTest RS (256) PL 
+>> (68) PW (78)
+
+
+MEMORY MODEL: SMALL
+
+
+INPUT MODULES INCLUDED:
+  C:\Users\seanb\Documents\Trinity-ENGR323-Embedded-System-Design\lab04\blinky
+>> test\SingleTone.obj (SINGLETONE)
+  C:\KEIL\C51\LIB\C51S.LIB (?C_STARTUP)
+  C:\KEIL\C51\LIB\C51S.LIB (?C_INIT)
+
+
+LINK MAP OF MODULE:  C:\Users\seanb\Documents\Trinity-ENGR323-Embedded-System-
+>> Design\lab04\blinkytest\BlinkyTest (SINGLETONE)
+
+
+            TYPE    BASE      LENGTH    RELOCATION   SEGMENT NAME
+            -----------------------------------------------------
+
+            * * * * * * *   D A T A   M E M O R Y   * * * * * * *
+            REG     0000H     0008H     ABSOLUTE     "REG BANK 0"
+            DATA    0008H     0002H     UNIT         ?DT?SINGLETONE
+            IDATA   000AH     0001H     UNIT         ?STACK
+
+            * * * * * * *   C O D E   M E M O R Y   * * * * * * *
+            CODE    0000H     0003H     ABSOLUTE     
+                    0003H     0070H                  *** GAP ***
+            CODE    0073H     0003H     ABSOLUTE     
+                    0076H     078AH                  *** GAP ***
+            CODE    0800H     008CH     UNIT         ?C_C51STARTUP
+            CODE    088CH     0028H     UNIT         ?PR?TIMER3_ISR?SINGLETONE
+>> 
+            CODE    08B4H     001DH     UNIT         ?PR?MAIN?SINGLETONE
+            CODE    08D1H     0018H     UNIT         ?PR?_TIMER3_INIT?SINGLETO
+>> NE
+            CODE    08E9H     0007H     UNIT         ?PR?PORT_INIT?SINGLETONE
+            CODE    08F0H     0005H     UNIT         ?C_INITSEG
+
+
+
+OVERLAY MAP OF MODULE:   C:\Users\seanb\Documents\Trinity-ENGR323-Embedded-Sys
+>> tem-Design\lab04\blinkytest\BlinkyTest (SINGLETONE)
+
+
+SEGMENT
+  +--> CALLED SEGMENT
+---------------------
+?C_C51STARTUP
+  +--> ?PR?MAIN?SINGLETONE
+  +--> ?C_INITSEG
+
+?PR?MAIN?SINGLETONE
+  +--> ?PR?PORT_INIT?SINGLETONE
+  +--> ?PR?_TIMER3_INIT?SINGLETONE
+
+
+
+SYMBOL TABLE OF MODULE:  C:\Users\seanb\Documents\Trinity-ENGR323-Embedded-Sys
+>> tem-Design\lab04\blinkytest\BlinkyTest (SINGLETONE)
+
+  VALUE           TYPE          NAME
+BL51 BANKED LINKER/LOCATER V6.22            04/02/2025  15:27:58  PAGE 2
+
+
+  ----------------------------------
+
+  -------         MODULE        SINGLETONE
+  C:0000H         SYMBOL        _ICE_DUMMY_
+  D:0090H         PUBLIC        P1
+  D:00FFH         PUBLIC        WDTCN
+  B:00A8H.7       PUBLIC        EA
+  D:00E7H         PUBLIC        EIE2
+  C:088CH         PUBLIC        Timer3_ISR
+  D:00E8H         PUBLIC        ADC0CN
+  D:0084H         PUBLIC        SFRPAGE
+  D:00E8H         PUBLIC        ADC2CN
+  D:00A5H         PUBLIC        P1MDOUT
+  B:0090H.4       PUBLIC        SPEAKER
+  D:00A8H         PUBLIC        IE
+  D:00D8H         PUBLIC        PCA0CN
+  D:00B8H         PUBLIC        IP
+  D:0008H         PUBLIC        led_counter
+  D:00E3H         PUBLIC        XBR2
+  D:00C0H         PUBLIC        SMB0CN
+  C:08B4H         PUBLIC        main
+  D:00CCH         PUBLIC        TMR3
+  D:0088H         PUBLIC        CPT0CN
+  D:0088H         PUBLIC        CPT1CN
+  C:08D1H         PUBLIC        _Timer3_Init
+  D:00F8H         PUBLIC        SPI0CN
+  D:0088H         PUBLIC        TCON
+  D:00C8H         PUBLIC        TMR2CN
+  D:00C8H         PUBLIC        TMR3CN
+  D:00C8H         PUBLIC        TMR4CN
+  C:08E9H         PUBLIC        PORT_Init
+  B:00C8H.7       PUBLIC        TF3
+  D:0088H         PUBLIC        FLSTAT
+  B:0090H.6       PUBLIC        LED
+  B:00C8H.2       PUBLIC        TR3
+  D:00CAH         PUBLIC        RCAP3
+  D:0098H         PUBLIC        SCON0
+  D:0098H         PUBLIC        SCON1
+  D:00D0H         PUBLIC        PSW
+  -------         PROC          MAIN
+  C:08B4H         LINE#         49
+  C:08B4H         LINE#         52
+  C:08B7H         LINE#         53
+  C:08BAH         LINE#         55
+  C:08BDH         LINE#         56
+  C:08C0H         LINE#         58
+  C:08C3H         LINE#         59
+  C:08CAH         LINE#         61
+  C:08CCH         LINE#         63
+  C:08CFH         LINE#         65
+  C:08CFH         LINE#         67
+  -------         ENDPROC       MAIN
+  -------         PROC          PORT_INIT
+  C:08E9H         LINE#         76
+  C:08E9H         LINE#         77
+  C:08E9H         LINE#         78
+  C:08ECH         LINE#         79
+  C:08EFH         LINE#         80
+  -------         ENDPROC       PORT_INIT
+  -------         PROC          _TIMER3_INIT
+  D:0006H         SYMBOL        counts
+  C:08D1H         LINE#         90
+  C:08D1H         LINE#         91
+  C:08D1H         LINE#         92
+  C:08D4H         LINE#         94
+BL51 BANKED LINKER/LOCATER V6.22            04/02/2025  15:27:58  PAGE 3
+
+
+  C:08DDH         LINE#         95
+  C:08E3H         LINE#         96
+  C:08E6H         LINE#         97
+  C:08E8H         LINE#         98
+  -------         ENDPROC       _TIMER3_INIT
+  -------         PROC          TIMER3_ISR
+  C:088CH         LINE#         113
+  C:0890H         LINE#         115
+  C:0892H         LINE#         117
+  C:0894H         LINE#         121
+  C:089CH         LINE#         122
+  C:08A7H         LINE#         123
+  C:08A9H         LINE#         124
+  C:08AFH         LINE#         125
+  C:08AFH         LINE#         126
+  -------         ENDPROC       TIMER3_ISR
+  -------         ENDMOD        SINGLETONE
+
+******************************************************************************
+>> 
+* RESTRICTED VERSION WITH 0800H BYTE CODE SIZE LIMIT; USED: 006BH BYTE ( 5%) *
+>> 
+******************************************************************************
+>> 
+
+Program Size: data=11.0 xdata=0 code=251
+LINK/LOCATE RUN COMPLETE.  0 WARNING(S),  0 ERROR(S)

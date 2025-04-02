@@ -1,0 +1,260 @@
+BL51 BANKED LINKER/LOCATER V6.22              04/02/2025  15:33:02  PAGE 1
+
+
+BL51 BANKED LINKER/LOCATER V6.22, INVOKED BY:
+C:\KEIL\C51\BIN\BL51.EXE C:\Users\seanb\Documents\Trinity-ENGR323-Embedded-Sys
+>> tem-Design\lab04\music\Music.obj TO C:\Users\seanb\Documents\Trinity-ENGR32
+>> 3-Embedded-System-Design\lab04\music\Music RS (256) PL (68) PW (78)
+
+
+MEMORY MODEL: SMALL
+
+
+INPUT MODULES INCLUDED:
+  C:\Users\seanb\Documents\Trinity-ENGR323-Embedded-System-Design\lab04\music\
+>> Music.obj (MUSIC)
+  C:\KEIL\C51\LIB\C51S.LIB (?C_STARTUP)
+  C:\KEIL\C51\LIB\C51S.LIB (?C?IMUL)
+  C:\KEIL\C51\LIB\C51S.LIB (?C?SLDIV)
+  C:\KEIL\C51\LIB\C51S.LIB (?C_INIT)
+  C:\KEIL\C51\LIB\C51S.LIB (?C?ULDIV)
+
+
+LINK MAP OF MODULE:  C:\Users\seanb\Documents\Trinity-ENGR323-Embedded-System-
+>> Design\lab04\music\Music (MUSIC)
+
+
+            TYPE    BASE      LENGTH    RELOCATION   SEGMENT NAME
+            -----------------------------------------------------
+
+            * * * * * * *   D A T A   M E M O R Y   * * * * * * *
+            REG     0000H     0008H     ABSOLUTE     "REG BANK 0"
+            DATA    0008H     0002H     UNIT         _DATA_GROUP_
+                    000AH     0016H                  *** GAP ***
+            BIT     0020H.0   0000H.1   UNIT         ?BI?MUSIC
+                    0020H.1   0000H.7                *** GAP ***
+            DATA    0021H     001FH     UNIT         ?DT?MUSIC
+            IDATA   0040H     0001H     UNIT         ?STACK
+
+            * * * * * * *   C O D E   M E M O R Y   * * * * * * *
+            CODE    0000H     0003H     ABSOLUTE     
+                    0003H     0070H                  *** GAP ***
+            CODE    0073H     0003H     ABSOLUTE     
+                    0076H     078AH                  *** GAP ***
+            CODE    0800H     00E0H     UNIT         ?C?LIB_CODE
+            CODE    08E0H     008CH     UNIT         ?C_C51STARTUP
+            CODE    096CH     005AH     UNIT         ?PR?_GETNOTEFREQUENCY?MUS
+>> IC
+            CODE    09C6H     004BH     UNIT         ?PR?MAIN?MUSIC
+            CODE    0A11H     004AH     UNIT         ?PR?_PLAYNOTE?MUSIC
+            CODE    0A5BH     0044H     UNIT         ?C?LDIV
+            CODE    0A9FH     0028H     UNIT         ?C_INITSEG
+            CODE    0AC7H     0026H     UNIT         ?PR?TIMER3_ISR?MUSIC
+            CODE    0AEDH     0020H     UNIT         ?PR?_DELAY_MS?MUSIC
+            CODE    0B0DH     0018H     UNIT         ?PR?_TIMER3_INIT?MUSIC
+            CODE    0B25H     0007H     UNIT         ?PR?PORT_INIT?MUSIC
+
+
+
+OVERLAY MAP OF MODULE:   C:\Users\seanb\Documents\Trinity-ENGR323-Embedded-Sys
+>> tem-Design\lab04\music\Music (MUSIC)
+
+
+SEGMENT                               DATA_GROUP 
+  +--> CALLED SEGMENT               START    LENGTH
+---------------------------------------------------
+?C_C51STARTUP                       -----    -----
+  +--> ?PR?MAIN?MUSIC
+  +--> ?C_INITSEG
+
+BL51 BANKED LINKER/LOCATER V6.22            04/02/2025  15:33:02  PAGE 2
+
+
+?PR?MAIN?MUSIC                      -----    -----
+  +--> ?PR?PORT_INIT?MUSIC
+  +--> ?PR?_PLAYNOTE?MUSIC
+  +--> ?PR?_DELAY_MS?MUSIC
+
+?PR?_PLAYNOTE?MUSIC                 0008H    0002H
+  +--> ?PR?_GETNOTEFREQUENCY?MUSIC
+  +--> ?PR?_TIMER3_INIT?MUSIC
+  +--> ?PR?_DELAY_MS?MUSIC
+
+
+
+SYMBOL TABLE OF MODULE:  C:\Users\seanb\Documents\Trinity-ENGR323-Embedded-Sys
+>> tem-Design\lab04\music\Music (MUSIC)
+
+  VALUE           TYPE          NAME
+  ----------------------------------
+
+  -------         MODULE        MUSIC
+  C:0000H         SYMBOL        _ICE_DUMMY_
+  D:0021H         PUBLIC        ML_length
+  D:0090H         PUBLIC        P1
+  D:00FFH         PUBLIC        WDTCN
+  B:00A8H.7       PUBLIC        EA
+  D:00E7H         PUBLIC        EIE2
+  C:0AC7H         PUBLIC        Timer3_ISR
+  D:00E8H         PUBLIC        ADC0CN
+  D:0084H         PUBLIC        SFRPAGE
+  D:00E8H         PUBLIC        ADC2CN
+  D:00A5H         PUBLIC        P1MDOUT
+  B:0090H.4       PUBLIC        SPEAKER
+  D:00A8H         PUBLIC        IE
+  B:0020H.0       PUBLIC        playing_tone
+  C:096CH         PUBLIC        _getNoteFrequency
+  D:00D8H         PUBLIC        PCA0CN
+  D:00B8H         PUBLIC        IP
+  D:002FH         PUBLIC        tone_counter
+  D:00E3H         PUBLIC        XBR2
+  D:00C0H         PUBLIC        SMB0CN
+  C:09C6H         PUBLIC        main
+  D:00CCH         PUBLIC        TMR3
+  D:0088H         PUBLIC        CPT0CN
+  D:0088H         PUBLIC        CPT1CN
+  C:0B0DH         PUBLIC        _Timer3_Init
+  D:00F8H         PUBLIC        SPI0CN
+  D:0088H         PUBLIC        TCON
+  D:00C8H         PUBLIC        TMR2CN
+  D:00C8H         PUBLIC        TMR3CN
+  D:00C8H         PUBLIC        TMR4CN
+  C:0B25H         PUBLIC        PORT_Init
+  D:0031H         PUBLIC        current_frequency
+  B:00C8H.7       PUBLIC        TF3
+  D:0088H         PUBLIC        FLSTAT
+  C:0A11H         PUBLIC        _playNote
+  D:0033H         PUBLIC        duration_counter
+  C:0AEDH         PUBLIC        _delay_ms
+  D:0035H         PUBLIC        current_duration
+  B:0090H.6       PUBLIC        LED
+  B:00C8H.2       PUBLIC        TR3
+  D:00CAH         PUBLIC        RCAP3
+  D:0037H         PUBLIC        note_idx
+  D:0098H         PUBLIC        SCON0
+  D:0098H         PUBLIC        SCON1
+  D:0039H         PUBLIC        Mary_Lamb
+  D:00D0H         PUBLIC        PSW
+BL51 BANKED LINKER/LOCATER V6.22            04/02/2025  15:33:02  PAGE 3
+
+
+  -------         PROC          MAIN
+  C:09C6H         LINE#         58
+  C:09C6H         LINE#         59
+  C:09C6H         LINE#         61
+  C:09C9H         LINE#         62
+  C:09CCH         LINE#         64
+  C:09CFH         LINE#         65
+  C:09D2H         LINE#         67
+  C:09D5H         LINE#         68
+  C:09D7H         LINE#         71
+  C:09DBH         LINE#         72
+  C:09F1H         LINE#         73
+  C:0A02H         LINE#         76
+  C:0A04H         LINE#         77
+  C:0A06H         LINE#         79
+  C:0A06H         LINE#         81
+  C:0A08H         LINE#         82
+  C:0A0FH         LINE#         83
+  -------         ENDPROC       MAIN
+  -------         PROC          _PLAYNOTE
+  D:0007H         SYMBOL        note
+  D:0008H         SYMBOL        duration
+  -------         DO            
+  D:0006H         SYMBOL        freq
+  -------         ENDDO         
+  C:0A11H         LINE#         89
+  C:0A15H         LINE#         90
+  C:0A18H         LINE#         93
+  C:0A21H         LINE#         95
+  C:0A24H         LINE#         96
+  C:0A41H         LINE#         99
+  C:0A4FH         LINE#         102
+  C:0A51H         LINE#         103
+  C:0A53H         LINE#         104
+  C:0A5AH         LINE#         105
+  C:0A5AH         LINE#         106
+  -------         ENDPROC       _PLAYNOTE
+  -------         PROC          _GETNOTEFREQUENCY
+  D:0007H         SYMBOL        note
+  C:096CH         LINE#         111
+  C:096CH         LINE#         112
+  C:099AH         LINE#         113
+  C:099FH         LINE#         114
+  C:09A4H         LINE#         115
+  C:09A9H         LINE#         116
+  C:09AEH         LINE#         117
+  C:09B3H         LINE#         118
+  C:09B8H         LINE#         119
+  C:09BDH         LINE#         120
+  C:09C2H         LINE#         121
+  C:09C5H         LINE#         122
+  C:09C5H         LINE#         123
+  -------         ENDPROC       _GETNOTEFREQUENCY
+  -------         PROC          _DELAY_MS
+  D:0006H         SYMBOL        ms
+  -------         DO            
+  D:0004H         SYMBOL        i
+  D:0002H         SYMBOL        j
+  -------         ENDDO         
+  C:0AEDH         LINE#         128
+  C:0AEDH         LINE#         130
+  C:0AF7H         LINE#         131
+  C:0B05H         LINE#         132
+  C:0B0CH         LINE#         133
+  -------         ENDPROC       _DELAY_MS
+BL51 BANKED LINKER/LOCATER V6.22            04/02/2025  15:33:02  PAGE 4
+
+
+  -------         PROC          PORT_INIT
+  C:0B25H         LINE#         138
+  C:0B25H         LINE#         139
+  C:0B25H         LINE#         140
+  C:0B28H         LINE#         141
+  C:0B2BH         LINE#         142
+  -------         ENDPROC       PORT_INIT
+  -------         PROC          _TIMER3_INIT
+  D:0006H         SYMBOL        counts
+  C:0B0DH         LINE#         147
+  C:0B0DH         LINE#         148
+  C:0B0DH         LINE#         149
+  C:0B10H         LINE#         150
+  C:0B19H         LINE#         151
+  C:0B1FH         LINE#         152
+  C:0B22H         LINE#         153
+  C:0B24H         LINE#         154
+  -------         ENDPROC       _TIMER3_INIT
+  -------         PROC          TIMER3_ISR
+  C:0AC7H         LINE#         159
+  C:0ACBH         LINE#         161
+  C:0ACDH         LINE#         162
+  C:0ACFH         LINE#         165
+  C:0AD7H         LINE#         166
+  C:0AE0H         LINE#         167
+  C:0AE2H         LINE#         168
+  C:0AE8H         LINE#         169
+  C:0AE8H         LINE#         170
+  -------         ENDPROC       TIMER3_ISR
+  -------         ENDMOD        MUSIC
+
+  -------         MODULE        ?C?IMUL
+  C:0800H         PUBLIC        ?C?IMUL
+  -------         ENDMOD        ?C?IMUL
+
+  -------         MODULE        ?C?SLDIV
+  C:0A5BH         PUBLIC        ?C?SLDIV
+  -------         ENDMOD        ?C?SLDIV
+
+  -------         MODULE        ?C?ULDIV
+  C:084EH         PUBLIC        ?C?ULDIV
+  -------         ENDMOD        ?C?ULDIV
+
+******************************************************************************
+>> 
+* RESTRICTED VERSION WITH 0800H BYTE CODE SIZE LIMIT; USED: 017EH BYTE (18%) *
+>> 
+******************************************************************************
+>> 
+
+Program Size: data=42.1 xdata=0 code=818
+LINK/LOCATE RUN COMPLETE.  0 WARNING(S),  0 ERROR(S)
