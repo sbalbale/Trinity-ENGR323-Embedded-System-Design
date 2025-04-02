@@ -30,9 +30,15 @@ sbit SPEAKER = P1 ^ 4; // tone output: '1' = ON; '0' = OFF
 #define NOTE_H  440  // High C / C2
 
 // Mary had a little lamb melody
-#define ML_SIZE 7
-char Mary_Lamb[ML_SIZE] = {'E', 'D', 'C', 'D', 'E', 'E', 'E'}; // melody
-short ML_length[ML_SIZE] = {2, 2, 2, 2, 2, 2, 4};              // relative duration
+#define ML_SIZE 26
+char Mary_Lamb[ML_SIZE] = {'E', 'D', 'C', 'D', 'E', 'E', 'E', 
+                           'D', 'D', 'D', 'E', 'G', 'G', 
+                           'E', 'D', 'C', 'D', 'E', 'E', 'E',
+                           'E', 'D', 'D', 'E', 'D', 'C'}; // complete melody
+short ML_length[ML_SIZE] = {2, 2, 2, 2, 2, 2, 4, 
+                           2, 2, 4, 2, 2, 4, 
+                           2, 2, 2, 2, 2, 2, 4, 
+                           2, 2, 4, 2, 2, 4};     // relative duration
 
 // Global variables
 unsigned short note_idx = 0;      // index for current note

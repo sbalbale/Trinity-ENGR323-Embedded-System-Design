@@ -1,4 +1,4 @@
-C51 COMPILER V9.00   MUSIC                                                                 04/02/2025 15:32:59 PAGE 1   
+C51 COMPILER V9.00   MUSIC                                                                 04/02/2025 15:37:18 PAGE 1   
 
 
 C51 COMPILER V9.00, COMPILATION OF MODULE MUSIC
@@ -39,159 +39,165 @@ line level    source
   30          #define NOTE_H  440  // High C / C2
   31          
   32          // Mary had a little lamb melody
-  33          #define ML_SIZE 7
-  34          char Mary_Lamb[ML_SIZE] = {'E', 'D', 'C', 'D', 'E', 'E', 'E'}; // melody
-  35          short ML_length[ML_SIZE] = {2, 2, 2, 2, 2, 2, 4};              // relative duration
-  36          
-  37          // Global variables
-  38          unsigned short note_idx = 0;      // index for current note
-  39          unsigned short tone_counter = 0;  // counter for tone generation
-  40          unsigned short duration_counter = 0; // counter for note duration
-  41          unsigned short current_frequency;    // frequency of current note
-  42          unsigned short current_duration;     // duration of current note
-  43          bit playing_tone = 1;               // flag to indicate if tone should be playing
-  44          
-  45          //------------------------------------------------------------------------------------
-  46          // Function PROTOTYPES
-  47          //------------------------------------------------------------------------------------
-  48          void PORT_Init(void);
-  49          void Timer3_Init(int counts);
-  50          void Timer3_ISR(void);
-  51          void delay_ms(unsigned int ms);
-  52          void playNote(char note, short duration);
-  53          unsigned short getNoteFrequency(char note);
-  54          
-  55          //------------------------------------------------------------------------------------
-C51 COMPILER V9.00   MUSIC                                                                 04/02/2025 15:32:59 PAGE 2   
+  33          #define ML_SIZE 26
+  34          char Mary_Lamb[ML_SIZE] = {'E', 'D', 'C', 'D', 'E', 'E', 'E', 
+  35                                     'D', 'D', 'D', 'E', 'G', 'G', 
+  36                                     'E', 'D', 'C', 'D', 'E', 'E', 'E',
+  37                                     'E', 'D', 'D', 'E', 'D', 'C'}; // complete melody
+  38          short ML_length[ML_SIZE] = {2, 2, 2, 2, 2, 2, 4, 
+  39                                     2, 2, 4, 2, 2, 4, 
+  40                                     2, 2, 2, 2, 2, 2, 4, 
+  41                                     2, 2, 4, 2, 2, 4};     // relative duration
+  42          
+  43          // Global variables
+  44          unsigned short note_idx = 0;      // index for current note
+  45          unsigned short tone_counter = 0;  // counter for tone generation
+  46          unsigned short duration_counter = 0; // counter for note duration
+  47          unsigned short current_frequency;    // frequency of current note
+  48          unsigned short current_duration;     // duration of current note
+  49          bit playing_tone = 1;               // flag to indicate if tone should be playing
+  50          
+  51          //------------------------------------------------------------------------------------
+  52          // Function PROTOTYPES
+  53          //------------------------------------------------------------------------------------
+  54          void PORT_Init(void);
+  55          void Timer3_Init(int counts);
+C51 COMPILER V9.00   MUSIC                                                                 04/02/2025 15:37:18 PAGE 2   
 
-  56          // MAIN Routine
-  57          //------------------------------------------------------------------------------------
-  58          void main(void)
-  59          {
-  60   1         // disable watchdog timer
-  61   1         WDTCN = 0xde;
-  62   1         WDTCN = 0xad;
-  63   1      
-  64   1         SFRPAGE = CONFIG_PAGE; // Switch to configuration page
-  65   1         PORT_Init();
-  66   1      
-  67   1         SFRPAGE = LEGACY_PAGE; // Page to sit in for now
-  68   1         EA = 1;                // enable global interrupts
+  56          void Timer3_ISR(void);
+  57          void delay_ms(unsigned int ms);
+  58          void playNote(char note, short duration);
+  59          unsigned short getNoteFrequency(char note);
+  60          
+  61          //------------------------------------------------------------------------------------
+  62          // MAIN Routine
+  63          //------------------------------------------------------------------------------------
+  64          void main(void)
+  65          {
+  66   1         // disable watchdog timer
+  67   1         WDTCN = 0xde;
+  68   1         WDTCN = 0xad;
   69   1      
-  70   1         // Play the melody note by note
-  71   1         for (note_idx = 0; note_idx < ML_SIZE; note_idx++) {
-  72   2            playNote(Mary_Lamb[note_idx], ML_length[note_idx]);
-  73   2         }
-  74   1      
-  75   1         // After playing the melody, stop
-  76   1         TR3 = 0;  // Stop the timer
-  77   1         SPEAKER = 0; // Turn off speaker
-  78   1         
-  79   1         while(1) {
-  80   2            // Flash LED to indicate we're done
-  81   2            LED = ~LED;
-  82   2            delay_ms(500);
-  83   2         }
-  84   1      }
-  85          
-  86          //------------------------------------------------------------------------------------
-  87          // playNote - Plays a single note for the specified duration
-  88          //------------------------------------------------------------------------------------
-  89          void playNote(char note, short duration) {
-  90   1         unsigned short freq = getNoteFrequency(note);
-  91   1         
-  92   1         // If it's a valid frequency
-  93   1         if (freq > 0) {
-  94   2            // Set up timer for this frequency
-  95   2            SFRPAGE = TMR3_PAGE;
-  96   2            Timer3_Init(SYSCLK / 12 / freq / 2);
-  97   2            
-  98   2            // Play for the specified duration (250ms per duration unit)
-  99   2            delay_ms(250 * duration);
- 100   2            
- 101   2            // Brief pause between notes to create separation
- 102   2            TR3 = 0;  // Stop timer
- 103   2            SPEAKER = 0; // Turn off speaker
- 104   2            delay_ms(50);
- 105   2         }
- 106   1      }
- 107          
- 108          //------------------------------------------------------------------------------------
- 109          // getNoteFrequency - Returns the frequency for a given note character
- 110          //------------------------------------------------------------------------------------
- 111          unsigned short getNoteFrequency(char note) {
- 112   1         switch (note) {
- 113   2            case 'C': return NOTE_C;
- 114   2            case 'D': return NOTE_D;
- 115   2            case 'E': return NOTE_E;
- 116   2            case 'F': return NOTE_F;
- 117   2            case 'G': return NOTE_G;
-C51 COMPILER V9.00   MUSIC                                                                 04/02/2025 15:32:59 PAGE 3   
+  70   1         SFRPAGE = CONFIG_PAGE; // Switch to configuration page
+  71   1         PORT_Init();
+  72   1      
+  73   1         SFRPAGE = LEGACY_PAGE; // Page to sit in for now
+  74   1         EA = 1;                // enable global interrupts
+  75   1      
+  76   1         // Play the melody note by note
+  77   1         for (note_idx = 0; note_idx < ML_SIZE; note_idx++) {
+  78   2            playNote(Mary_Lamb[note_idx], ML_length[note_idx]);
+  79   2         }
+  80   1      
+  81   1         // After playing the melody, stop
+  82   1         TR3 = 0;  // Stop the timer
+  83   1         SPEAKER = 0; // Turn off speaker
+  84   1         
+  85   1         while(1) {
+  86   2            // Flash LED to indicate we're done
+  87   2            LED = ~LED;
+  88   2            delay_ms(500);
+  89   2         }
+  90   1      }
+  91          
+  92          //------------------------------------------------------------------------------------
+  93          // playNote - Plays a single note for the specified duration
+  94          //------------------------------------------------------------------------------------
+  95          void playNote(char note, short duration) {
+  96   1         unsigned short freq = getNoteFrequency(note);
+  97   1         
+  98   1         // If it's a valid frequency
+  99   1         if (freq > 0) {
+ 100   2            // Set up timer for this frequency
+ 101   2            SFRPAGE = TMR3_PAGE;
+ 102   2            Timer3_Init(SYSCLK / 12 / freq / 2);
+ 103   2            
+ 104   2            // Play for the specified duration (250ms per duration unit)
+ 105   2            delay_ms(250 * duration);
+ 106   2            
+ 107   2            // Brief pause between notes to create separation
+ 108   2            TR3 = 0;  // Stop timer
+ 109   2            SPEAKER = 0; // Turn off speaker
+ 110   2            delay_ms(50);
+ 111   2         }
+ 112   1      }
+ 113          
+ 114          //------------------------------------------------------------------------------------
+ 115          // getNoteFrequency - Returns the frequency for a given note character
+ 116          //------------------------------------------------------------------------------------
+ 117          unsigned short getNoteFrequency(char note) {
+C51 COMPILER V9.00   MUSIC                                                                 04/02/2025 15:37:18 PAGE 3   
 
- 118   2            case 'A': return NOTE_A;
- 119   2            case 'B': return NOTE_B;
- 120   2            case 'H': return NOTE_H;
- 121   2            default: return 0;  // Invalid note
- 122   2         }
- 123   1      }
- 124          
- 125          //------------------------------------------------------------------------------------
- 126          // delay_ms - Simple delay function
- 127          //------------------------------------------------------------------------------------
- 128          void delay_ms(unsigned int ms) {
- 129   1         unsigned int i, j;
- 130   1         for (i = 0; i < ms; i++) {
- 131   2            for (j = 0; j < 100; j++);  // Adjust this for accurate timing
- 132   2         }
- 133   1      }
- 134          
- 135          //------------------------------------------------------------------------------------
- 136          // PORT_Init
- 137          //------------------------------------------------------------------------------------
- 138          void PORT_Init(void)
- 139          {
- 140   1         XBR2 = 0x40;     // Enable crossbar and weak pull-ups
- 141   1         P1MDOUT |= 0x50; // enable P1.6 (LED) and P1.4 (SPEAKER) as push-pull outputs
- 142   1      }
- 143          
- 144          //------------------------------------------------------------------------------------
- 145          // Timer3_Init
- 146          //------------------------------------------------------------------------------------
- 147          void Timer3_Init(int counts)
- 148          {
- 149   1         TMR3CN = 0x00;   // Stop Timer3; Clear TF3; use SYSCLK/12 as timebase
- 150   1         RCAP3 = -counts; // Init reload values
- 151   1         TMR3 = 0xffff;   // set to reload immediately
- 152   1         EIE2 |= 0x01;    // enable Timer3 interrupts
- 153   1         TR3 = 1;         // start Timer3
- 154   1      }
- 155          
- 156          //------------------------------------------------------------------------------------
- 157          // Timer3_ISR
- 158          //------------------------------------------------------------------------------------
- 159          void Timer3_ISR(void) interrupt 14
- 160          {
- 161   1         TF3 = 0;         // clear TF3
- 162   1         SPEAKER = ~SPEAKER; // toggle speaker to generate tone
- 163   1         
- 164   1         // Blink LED at slower rate for visual feedback
- 165   1         tone_counter++;
- 166   1         if (tone_counter >= 100) {
- 167   2            LED = ~LED;
- 168   2            tone_counter = 0;
- 169   2         }
- 170   1      }
+ 118   1         switch (note) {
+ 119   2            case 'C': return NOTE_C;
+ 120   2            case 'D': return NOTE_D;
+ 121   2            case 'E': return NOTE_E;
+ 122   2            case 'F': return NOTE_F;
+ 123   2            case 'G': return NOTE_G;
+ 124   2            case 'A': return NOTE_A;
+ 125   2            case 'B': return NOTE_B;
+ 126   2            case 'H': return NOTE_H;
+ 127   2            default: return 0;  // Invalid note
+ 128   2         }
+ 129   1      }
+ 130          
+ 131          //------------------------------------------------------------------------------------
+ 132          // delay_ms - Simple delay function
+ 133          //------------------------------------------------------------------------------------
+ 134          void delay_ms(unsigned int ms) {
+ 135   1         unsigned int i, j;
+ 136   1         for (i = 0; i < ms; i++) {
+ 137   2            for (j = 0; j < 100; j++);  // Adjust this for accurate timing
+ 138   2         }
+ 139   1      }
+ 140          
+ 141          //------------------------------------------------------------------------------------
+ 142          // PORT_Init
+ 143          //------------------------------------------------------------------------------------
+ 144          void PORT_Init(void)
+ 145          {
+ 146   1         XBR2 = 0x40;     // Enable crossbar and weak pull-ups
+ 147   1         P1MDOUT |= 0x50; // enable P1.6 (LED) and P1.4 (SPEAKER) as push-pull outputs
+ 148   1      }
+ 149          
+ 150          //------------------------------------------------------------------------------------
+ 151          // Timer3_Init
+ 152          //------------------------------------------------------------------------------------
+ 153          void Timer3_Init(int counts)
+ 154          {
+ 155   1         TMR3CN = 0x00;   // Stop Timer3; Clear TF3; use SYSCLK/12 as timebase
+ 156   1         RCAP3 = -counts; // Init reload values
+ 157   1         TMR3 = 0xffff;   // set to reload immediately
+ 158   1         EIE2 |= 0x01;    // enable Timer3 interrupts
+ 159   1         TR3 = 1;         // start Timer3
+ 160   1      }
+ 161          
+ 162          //------------------------------------------------------------------------------------
+ 163          // Timer3_ISR
+ 164          //------------------------------------------------------------------------------------
+ 165          void Timer3_ISR(void) interrupt 14
+ 166          {
+ 167   1         TF3 = 0;         // clear TF3
+ 168   1         SPEAKER = ~SPEAKER; // toggle speaker to generate tone
+ 169   1         
+ 170   1         // Blink LED at slower rate for visual feedback
+ 171   1         tone_counter++;
+ 172   1         if (tone_counter >= 100) {
+ 173   2            LED = ~LED;
+ 174   2            tone_counter = 0;
+ 175   2         }
+ 176   1      }
 
 
 MODULE INFORMATION:   STATIC OVERLAYABLE
+C51 COMPILER V9.00   MUSIC                                                                 04/02/2025 15:37:18 PAGE 4   
+
    CODE SIZE        =    340    ----
    CONSTANT SIZE    =   ----    ----
    XDATA SIZE       =   ----    ----
    PDATA SIZE       =   ----    ----
-   DATA SIZE        =     31       2
+   DATA SIZE        =     88       2
    IDATA SIZE       =   ----    ----
-C51 COMPILER V9.00   MUSIC                                                                 04/02/2025 15:32:59 PAGE 4   
-
    BIT SIZE         =      1    ----
 END OF MODULE INFORMATION.
 
