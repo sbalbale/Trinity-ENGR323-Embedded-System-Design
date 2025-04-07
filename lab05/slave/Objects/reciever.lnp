@@ -1,0 +1,3 @@
+".\Objects\slave.obj" 
+TO ".\Objects\reciever" 
+PRINT(".\Listings\reciever.m51")

@@ -1,0 +1,441 @@
+A51 MACRO ASSEMBLER  SLAVE                                                                04/07/2025 14:19:24 PAGE     1
+
+
+MACRO ASSEMBLER A51 V8.2.7.0
+OBJECT MODULE PLACED IN .\Objects\slave.obj
+ASSEMBLER INVOKED BY: C:\Keil_v5\C51\BIN\A51.EXE slave.asm SET(SMALL) DEBUG PRINT(.\Listings\slave.lst) OBJECT(.\Objects
+                      \slave.obj) EP
+
+LOC  OBJ            LINE     SOURCE
+
+                       1     ;-----------------------------------------------------------------------------
+                       2     ; UART Slave Receiver
+                       3     ; This program configures the 8051 as a UART slave receiver that can:
+                       4     ; 1. Determine if it is the targeted-receiver
+                       5     ; 2. Receive data and store in RAM locations 30h-6Fh
+                       6     ; 3. Display "DONE" when all bytes are received
+                       7     ; 4. Display received data sequentially with 1-second intervals 
+                       8     ; 5. Display "END" when completed
+                       9     ;-----------------------------------------------------------------------------
+                      10     
+                      11     ;-----------------------------------------------------------------------------
+                      12     ; Constants
+                      13     ;-----------------------------------------------------------------------------
+  0005                14     SLAVE_ADDR      EQU     05h     ; Slave address (must match master)
+  0040                15     DATA_SIZE       EQU     40h     ; 64 bytes of data (0x00-0x3F)
+                      16     
+                      17     ; 7-segment display codes (active low)
+  0001                18     ZERO            EQU     01h     ; 0
+  004F                19     ONE             EQU     4Fh     ; 1
+  0012                20     TWO             EQU     12h     ; 2
+  0006                21     THREE           EQU     06h     ; 3
+  004C                22     FOUR            EQU     4Ch     ; 4
+  0024                23     FIVE            EQU     24h     ; 5
+  0020                24     SIX             EQU     20h     ; 6
+  000F                25     SEVEN           EQU     0Fh     ; 7
+  0000                26     EIGHT           EQU     00h     ; 8
+  0004                27     NINE            EQU     04h     ; 9
+  0042                28     LETTER_D        EQU     42h     ; d
+  0011                29     LETTER_O        EQU     11h     ; o
+  006A                30     LETTER_N        EQU     6Ah     ; n
+  0030                31     LETTER_E        EQU     30h     ; E
+                      32     
+                      33     ; Display messages
+                      34     ; RAM locations for display buffer
+  0070                35     DISP_BUF        EQU     70h     ; Start of display buffer (4 bytes)
+                      36     
+                      37     ;-----------------------------------------------------------------------------
+                      38     ; Interrupt Vector Table
+                      39     ;-----------------------------------------------------------------------------
+0000                  40                 ORG     0000h
+0000 802E             41                 SJMP    MAIN            ; Reset vector
+                      42     
+0023                  43                 ORG     0023h           ; Serial interrupt vector
+0023 020068           44                 LJMP    SERIAL_ISR
+                      45     
+000B                  46                 ORG     000Bh           ; Timer 0 interrupt vector
+000B 0200A1           47                 LJMP    TIMER0_ISR
+                      48     
+0013                  49                 ORG     0013h           ; External interrupt 1 vector
+0013 02013A           50                 LJMP    EXT1_ISR
+                      51     
+                      52     ;-----------------------------------------------------------------------------
+                      53     ; Main Program
+                      54     ;-----------------------------------------------------------------------------
+0030                  55                 ORG     0030h
+0030 758160           56     MAIN:       MOV     SP, #60h        ; Initialize stack pointer
+                      57     
+A51 MACRO ASSEMBLER  SLAVE                                                                04/07/2025 14:19:24 PAGE     2
+
+                      58                 ; Initialize variables
+0033 7F00             59                 MOV     R7, #00h        ; Display position counter
+0035 752000           60                 MOV     20h, #00h       ; Mode (0=Waiting, 1=Receiving, 2=Done, 3=Display, 4=En
+                             d)
+0038 752100           61                 MOV     21h, #00h       ; Data index for display
+003B 752200           62                 MOV     22h, #00h       ; Timer counter for 1-second intervals
+                      63                 
+                      64                 ; Setup serial port (Mode 3 - 9-bit UART)
+003E 7598F0           65                 MOV     SCON, #0F0h     ; Mode 3, SM2=1 (enable multiprocessor), REN=1
+                      66                 
+                      67                 ; Set baud rate using Timer 1 (assuming 11.0592 MHz crystal)
+0041 758921           68                 MOV     TMOD, #21h      ; Timer 0: 16-bit mode, Timer 1: 8-bit auto-reload
+0044 758DFD           69                 MOV     TH1, #0FDh      ; 9600 baud rate with 11.0592 MHz crystal
+0047 D28E             70                 SETB    TR1             ; Start Timer 1
+                      71                 
+                      72                 ; Setup Timer 0 for display refresh (5ms intervals)
+0049 758CEC           73                 MOV     TH0, #0ECh      ; Load high byte for 5ms delay
+004C 758A78           74                 MOV     TL0, #78h       ; Load low byte for 5ms delay
+                      75                 
+                      76                 ; Setup display buffer with "----" initially
+004F 757040           77                 MOV     DISP_BUF+0, #40h    ; "-"
+0052 757140           78                 MOV     DISP_BUF+1, #40h    ; "-"
+0055 757240           79                 MOV     DISP_BUF+2, #40h    ; "-"
+0058 757340           80                 MOV     DISP_BUF+3, #40h    ; "-"
+                      81                 
+                      82                 ; Enable interrupts
+005B D2AC             83                 SETB    ES              ; Enable serial interrupt
+005D D2A9             84                 SETB    ET0             ; Enable Timer 0 interrupt
+005F D2AA             85                 SETB    EX1             ; Enable External interrupt 1
+0061 D2AF             86                 SETB    EA              ; Enable global interrupts
+                      87                 
+                      88                 ; Configure P1 for output (7-segment display)
+0063 7590FF           89                 MOV     P1, #0FFh       ; Turn off all segments initially
+                      90     
+0066 80FE             91     MAIN_LOOP:  SJMP    MAIN_LOOP       ; Wait for interrupts
+                      92     
+                      93     ;-----------------------------------------------------------------------------
+                      94     ; Serial Interrupt Service Routine
+                      95     ;-----------------------------------------------------------------------------
+0068 C0E0             96     SERIAL_ISR: PUSH    ACC
+006A C0D0             97                 PUSH    PSW
+                      98                 
+006C C298             99                 CLR     RI              ; Clear receive interrupt flag
+                     100                 
+                     101                 ; Check if SM2 is set (waiting for address)
+006E 309D10          102                 JNB     SM2, RECEIVE_DATA
+                     103                 
+                     104                 ; Address mode - check if this slave is being addressed
+0071 E599            105                 MOV     A, SBUF
+0073 B40509          106                 CJNE    A, #SLAVE_ADDR, NOT_OUR_ADDR
+                     107                 
+                     108                 ; This slave is being addressed
+0076 C29D            109                 CLR     SM2             ; Clear SM2 to receive data bytes
+0078 7830            110                 MOV     R0, #30h        ; Initialize data pointer to RAM location 30h
+007A 752001          111                 MOV     20h, #01h       ; Set mode to receiving
+007D 801D            112                 SJMP    SERIAL_EXIT
+                     113                 
+007F                 114     NOT_OUR_ADDR:
+                     115                 ; Not our address, stay in address mode
+007F 801B            116                 SJMP    SERIAL_EXIT
+                     117                 
+0081                 118     RECEIVE_DATA:
+                     119                 ; We are receiving a data byte
+0081 E599            120                 MOV     A, SBUF         ; Get received data
+0083 F6              121                 MOV     @R0, A          ; Store in RAM
+0084 08              122                 INC     R0              ; Increment pointer
+A51 MACRO ASSEMBLER  SLAVE                                                                04/07/2025 14:19:24 PAGE     3
+
+                     123                 
+                     124                 ; Check if we've received all data
+0085 E8              125                 MOV     A, R0
+0086 B47013          126                 CJNE    A, #70h, SERIAL_EXIT  ; If not at end of buffer, continue
+                     127                 
+                     128                 ; All data received
+0089 D29D            129                 SETB    SM2             ; Reset SM2 to wait for next address byte
+008B 752002          130                 MOV     20h, #02h       ; Set mode to Done
+                     131                 
+                     132                 ; Setup "DONE" message in display buffer
+008E 757042          133                 MOV     DISP_BUF+0, #LETTER_D
+0091 757111          134                 MOV     DISP_BUF+1, #LETTER_O
+0094 75726A          135                 MOV     DISP_BUF+2, #LETTER_N
+0097 757330          136                 MOV     DISP_BUF+3, #LETTER_E
+                     137                 
+                     138                 ; Start Timer 0 for display
+009A D28C            139                 SETB    TR0
+                     140     
+009C                 141     SERIAL_EXIT:
+009C D0D0            142                 POP     PSW
+009E D0E0            143                 POP     ACC
+00A0 32              144                 RETI
+                     145     
+                     146     ;-----------------------------------------------------------------------------
+                     147     ; Timer 0 Interrupt Service Routine
+                     148     ;-----------------------------------------------------------------------------
+00A1 C0E0            149     TIMER0_ISR: PUSH    ACC
+00A3 C0D0            150                 PUSH    PSW
+                     151                 
+                     152                 ; Reload timer for next 5ms interval
+00A5 758CEC          153                 MOV     TH0, #0ECh
+00A8 758A78          154                 MOV     TL0, #78h
+                     155                 
+                     156                 ; Update display refresh counter
+00AB 0522            157                 INC     22h
+00AD E522            158                 MOV     A, 22h
+                     159                 
+                     160                 ; Check if 1 second has passed (200 * 5ms = 1 second)
+00AF B4C854          161                 CJNE    A, #200, REFRESH_DISPLAY
+00B2 752200          162                 MOV     22h, #0         ; Reset counter
+                     163                 
+                     164                 ; Check current mode
+00B5 E520            165                 MOV     A, 20h
+00B7 B40208          166                 CJNE    A, #02h, CHECK_DISPLAY_MODE  ; If not in Done mode, check display mode
+00BA 752003          167                 MOV     20h, #03h       ; Switch to Display mode
+00BD 752100          168                 MOV     21h, #00h       ; Reset display index
+00C0 8003            169                 SJMP    UPDATE_DATA_DISPLAY
+                     170                 
+00C2                 171     CHECK_DISPLAY_MODE:
+00C2 B40341          172                 CJNE    A, #03h, CHECK_END_MODE      ; If not in Display mode, check End mode
+                     173                 
+                     174                 ; In Display mode - update display with next data byte
+00C5                 175     UPDATE_DATA_DISPLAY:
+00C5 E521            176                 MOV     A, 21h          ; Get current data index
+00C7 2430            177                 ADD     A, #30h         ; Add base address of data
+00C9 F8              178                 MOV     R0, A           ; R0 points to current data byte
+00CA E6              179                 MOV     A, @R0          ; Get data byte
+                     180                 
+                     181                 ; Convert to BCD and display
+00CB 75F064          182                 MOV     B, #100
+00CE 84              183                 DIV     AB              ; A = hundreds, B = remainder
+00CF F571            184                 MOV     DISP_BUF+1, A   ; Store hundreds digit
+                     185                 
+00D1 E5F0            186                 MOV     A, B
+00D3 75F00A          187                 MOV     B, #10
+00D6 84              188                 DIV     AB              ; A = tens, B = ones
+A51 MACRO ASSEMBLER  SLAVE                                                                04/07/2025 14:19:24 PAGE     4
+
+00D7 F572            189                 MOV     DISP_BUF+2, A   ; Store tens digit
+00D9 85F073          190                 MOV     DISP_BUF+3, B   ; Store ones digit
+                     191                 
+00DC 757040          192                 MOV     DISP_BUF+0, #40h ; Show "-" in first position
+                     193                 
+                     194                 ; Convert BCD to 7-segment codes
+00DF 7871            195                 MOV     R0, #DISP_BUF+1
+00E1 120151          196                 LCALL   CONVERT_BCD_TO_7SEG
+00E4 7872            197                 MOV     R0, #DISP_BUF+2
+00E6 120151          198                 LCALL   CONVERT_BCD_TO_7SEG
+00E9 7873            199                 MOV     R0, #DISP_BUF+3
+00EB 120151          200                 LCALL   CONVERT_BCD_TO_7SEG
+                     201                 
+                     202                 ; Increment display index
+00EE 0521            203                 INC     21h
+00F0 E521            204                 MOV     A, 21h
+00F2 B44011          205                 CJNE    A, #DATA_SIZE, REFRESH_DISPLAY ; If not at end of data, continue
+                     206                 
+                     207                 ; All data displayed, switch to End mode
+00F5 752004          208                 MOV     20h, #04h       ; Set mode to End
+                     209                 
+                     210                 ; Setup "END " message
+00F8 757030          211                 MOV     DISP_BUF+0, #LETTER_E
+00FB 75716A          212                 MOV     DISP_BUF+1, #LETTER_N
+00FE 757242          213                 MOV     DISP_BUF+2, #LETTER_D
+0101 757340          214                 MOV     DISP_BUF+3, #40h ; "-"
+0104 8000            215                 SJMP    REFRESH_DISPLAY
+                     216                 
+0106                 217     CHECK_END_MODE:
+                     218                 ; Nothing special to do in End mode
+                     219                 
+0106                 220     REFRESH_DISPLAY:
+                     221                 ; Update the display based on current position
+0106 EF              222                 MOV     A, R7
+                     223                 
+                     224                 ; Select digit position and get segment pattern
+0107 B40007          225                 CJNE    A, #00h, CHECK_POS1
+010A 7400            226                 MOV     A, #00h         ; Position code for digit 0
+010C 8570F0          227                 MOV     B, DISP_BUF+0   ; Get segment pattern
+010F 8019            228                 SJMP    OUTPUT_DISPLAY
+                     229                 
+0111 B40107          230     CHECK_POS1: CJNE    A, #01h, CHECK_POS2
+0114 7410            231                 MOV     A, #10h         ; Position code for digit 1
+0116 8571F0          232                 MOV     B, DISP_BUF+1   ; Get segment pattern
+0119 800F            233                 SJMP    OUTPUT_DISPLAY
+                     234                 
+011B B40207          235     CHECK_POS2: CJNE    A, #02h, CHECK_POS3
+011E 7420            236                 MOV     A, #20h         ; Position code for digit 2
+0120 8572F0          237                 MOV     B, DISP_BUF+2   ; Get segment pattern
+0123 8005            238                 SJMP    OUTPUT_DISPLAY
+                     239                 
+0125                 240     CHECK_POS3: ; Must be position 3
+0125 7430            241                 MOV     A, #30h         ; Position code for digit 3
+0127 8573F0          242                 MOV     B, DISP_BUF+3   ; Get segment pattern
+                     243                 
+012A                 244     OUTPUT_DISPLAY:
+012A 45F0            245                 ORL     A, B            ; Combine position and segment pattern
+012C F590            246                 MOV     P1, A           ; Output to display
+                     247                 
+                     248                 ; Update position for next time
+012E 0F              249                 INC     R7
+012F EF              250                 MOV     A, R7
+0130 B40402          251                 CJNE    A, #04h, TIMER0_EXIT
+0133 7F00            252                 MOV     R7, #00h
+                     253                 
+0135                 254     TIMER0_EXIT:
+A51 MACRO ASSEMBLER  SLAVE                                                                04/07/2025 14:19:24 PAGE     5
+
+0135 D0D0            255                 POP     PSW
+0137 D0E0            256                 POP     ACC
+0139 32              257                 RETI
+                     258     
+                     259     ;-----------------------------------------------------------------------------
+                     260     ; External Interrupt 1 Service Routine
+                     261     ;-----------------------------------------------------------------------------
+013A C0E0            262     EXT1_ISR:   PUSH    ACC
+013C C0D0            263                 PUSH    PSW
+                     264                 
+                     265                 ; Use external interrupt to start display of received data
+013E E520            266                 MOV     A, 20h
+0140 B40209          267                 CJNE    A, #02h, EXT1_EXIT  ; If not in Done mode, ignore
+                     268                 
+0143 752003          269                 MOV     20h, #03h       ; Switch to Display mode
+0146 752100          270                 MOV     21h, #00h       ; Reset display index
+0149 752200          271                 MOV     22h, #0         ; Reset timer counter
+                     272                 
+014C D0D0            273     EXT1_EXIT:  POP     PSW
+014E D0E0            274                 POP     ACC
+0150 32              275                 RETI
+                     276     
+                     277     ;-----------------------------------------------------------------------------
+                     278     ; Convert BCD to 7-segment code
+                     279     ; Input: R0 points to BCD value
+                     280     ; Output: 7-segment code replaces BCD value at [R0]
+                     281     ;-----------------------------------------------------------------------------
+0151                 282     CONVERT_BCD_TO_7SEG:
+0151 C0E0            283                 PUSH    ACC
+0153 C0D0            284                 PUSH    PSW
+                     285                 
+0155 E6              286                 MOV     A, @R0          ; Get BCD value
+                     287                 
+                     288                 ; Convert to 7-segment code using lookup table
+0156 B40004          289                 CJNE    A, #00h, TRY_ONE
+0159 7601            290                 MOV     @R0, #ZERO
+015B 8041            291                 SJMP    CONVERT_EXIT
+                     292                 
+015D B40104          293     TRY_ONE:    CJNE    A, #01h, TRY_TWO
+0160 764F            294                 MOV     @R0, #ONE
+0162 803A            295                 SJMP    CONVERT_EXIT
+                     296                 
+0164 B40204          297     TRY_TWO:    CJNE    A, #02h, TRY_THREE
+0167 7612            298                 MOV     @R0, #TWO
+0169 8033            299                 SJMP    CONVERT_EXIT
+                     300                 
+016B B40304          301     TRY_THREE:  CJNE    A, #03h, TRY_FOUR
+016E 7606            302                 MOV     @R0, #THREE
+0170 802C            303                 SJMP    CONVERT_EXIT
+                     304                 
+0172 B40404          305     TRY_FOUR:   CJNE    A, #04h, TRY_FIVE
+0175 764C            306                 MOV     @R0, #FOUR
+0177 8025            307                 SJMP    CONVERT_EXIT
+                     308                 
+0179 B40504          309     TRY_FIVE:   CJNE    A, #05h, TRY_SIX
+017C 7624            310                 MOV     @R0, #FIVE
+017E 801E            311                 SJMP    CONVERT_EXIT
+                     312                 
+0180 B40604          313     TRY_SIX:    CJNE    A, #06h, TRY_SEVEN
+0183 7620            314                 MOV     @R0, #SIX
+0185 8017            315                 SJMP    CONVERT_EXIT
+                     316                 
+0187 B40704          317     TRY_SEVEN:  CJNE    A, #07h, TRY_EIGHT
+018A 760F            318                 MOV     @R0, #SEVEN
+018C 8010            319                 SJMP    CONVERT_EXIT
+                     320                 
+A51 MACRO ASSEMBLER  SLAVE                                                                04/07/2025 14:19:24 PAGE     6
+
+018E B40804          321     TRY_EIGHT:  CJNE    A, #08h, TRY_NINE
+0191 7600            322                 MOV     @R0, #EIGHT
+0193 8009            323                 SJMP    CONVERT_EXIT
+                     324                 
+0195 B40904          325     TRY_NINE:   CJNE    A, #09h, CONVERT_DEFAULT
+0198 7604            326                 MOV     @R0, #NINE
+019A 8002            327                 SJMP    CONVERT_EXIT
+                     328                 
+019C                 329     CONVERT_DEFAULT:
+                     330                 ; If not a valid digit, display blank
+019C 76FF            331                 MOV     @R0, #0FFh
+                     332                 
+019E                 333     CONVERT_EXIT:
+019E D0D0            334                 POP     PSW
+01A0 D0E0            335                 POP     ACC
+01A2 22              336                 RET
+                     337     
+                     338                 END
+A51 MACRO ASSEMBLER  SLAVE                                                                04/07/2025 14:19:24 PAGE     7
+
+SYMBOL TABLE LISTING
+------ ----- -------
+
+
+N A M E              T Y P E  V A L U E   ATTRIBUTES
+
+ACC . . . . . . . .  D ADDR   00E0H   A   
+B . . . . . . . . .  D ADDR   00F0H   A   
+CHECK_DISPLAY_MODE.  C ADDR   00C2H   A   
+CHECK_END_MODE. . .  C ADDR   0106H   A   
+CHECK_POS1. . . . .  C ADDR   0111H   A   
+CHECK_POS2. . . . .  C ADDR   011BH   A   
+CHECK_POS3. . . . .  C ADDR   0125H   A   
+CONVERT_BCD_TO_7SEG  C ADDR   0151H   A   
+CONVERT_DEFAULT . .  C ADDR   019CH   A   
+CONVERT_EXIT. . . .  C ADDR   019EH   A   
+DATA_SIZE . . . . .  N NUMB   0040H   A   
+DISP_BUF. . . . . .  N NUMB   0070H   A   
+EA. . . . . . . . .  B ADDR   00A8H.7 A   
+EIGHT . . . . . . .  N NUMB   0000H   A   
+ES. . . . . . . . .  B ADDR   00A8H.4 A   
+ET0 . . . . . . . .  B ADDR   00A8H.1 A   
+EX1 . . . . . . . .  B ADDR   00A8H.2 A   
+EXT1_EXIT . . . . .  C ADDR   014CH   A   
+EXT1_ISR. . . . . .  C ADDR   013AH   A   
+FIVE. . . . . . . .  N NUMB   0024H   A   
+FOUR. . . . . . . .  N NUMB   004CH   A   
+LETTER_D. . . . . .  N NUMB   0042H   A   
+LETTER_E. . . . . .  N NUMB   0030H   A   
+LETTER_N. . . . . .  N NUMB   006AH   A   
+LETTER_O. . . . . .  N NUMB   0011H   A   
+MAIN. . . . . . . .  C ADDR   0030H   A   
+MAIN_LOOP . . . . .  C ADDR   0066H   A   
+NINE. . . . . . . .  N NUMB   0004H   A   
+NOT_OUR_ADDR. . . .  C ADDR   007FH   A   
+ONE . . . . . . . .  N NUMB   004FH   A   
+OUTPUT_DISPLAY. . .  C ADDR   012AH   A   
+P1. . . . . . . . .  D ADDR   0090H   A   
+PSW . . . . . . . .  D ADDR   00D0H   A   
+RECEIVE_DATA. . . .  C ADDR   0081H   A   
+REFRESH_DISPLAY . .  C ADDR   0106H   A   
+RI. . . . . . . . .  B ADDR   0098H.0 A   
+SBUF. . . . . . . .  D ADDR   0099H   A   
+SCON. . . . . . . .  D ADDR   0098H   A   
+SERIAL_EXIT . . . .  C ADDR   009CH   A   
+SERIAL_ISR. . . . .  C ADDR   0068H   A   
+SEVEN . . . . . . .  N NUMB   000FH   A   
+SIX . . . . . . . .  N NUMB   0020H   A   
+SLAVE_ADDR. . . . .  N NUMB   0005H   A   
+SM2 . . . . . . . .  B ADDR   0098H.5 A   
+SP. . . . . . . . .  D ADDR   0081H   A   
+TH0 . . . . . . . .  D ADDR   008CH   A   
+TH1 . . . . . . . .  D ADDR   008DH   A   
+THREE . . . . . . .  N NUMB   0006H   A   
+TIMER0_EXIT . . . .  C ADDR   0135H   A   
+TIMER0_ISR. . . . .  C ADDR   00A1H   A   
+TL0 . . . . . . . .  D ADDR   008AH   A   
+TMOD. . . . . . . .  D ADDR   0089H   A   
+TR0 . . . . . . . .  B ADDR   0088H.4 A   
+TR1 . . . . . . . .  B ADDR   0088H.6 A   
+TRY_EIGHT . . . . .  C ADDR   018EH   A   
+TRY_FIVE. . . . . .  C ADDR   0179H   A   
+TRY_FOUR. . . . . .  C ADDR   0172H   A   
+TRY_NINE. . . . . .  C ADDR   0195H   A   
+TRY_ONE . . . . . .  C ADDR   015DH   A   
+TRY_SEVEN . . . . .  C ADDR   0187H   A   
+A51 MACRO ASSEMBLER  SLAVE                                                                04/07/2025 14:19:24 PAGE     8
+
+TRY_SIX . . . . . .  C ADDR   0180H   A   
+TRY_THREE . . . . .  C ADDR   016BH   A   
+TRY_TWO . . . . . .  C ADDR   0164H   A   
+TWO . . . . . . . .  N NUMB   0012H   A   
+UPDATE_DATA_DISPLAY  C ADDR   00C5H   A   
+ZERO. . . . . . . .  N NUMB   0001H   A   
+
+
+REGISTER BANK(S) USED: 0 
+
+
+ASSEMBLY COMPLETE.  0 WARNING(S), 0 ERROR(S)

@@ -1,0 +1,71 @@
+C51 COMPILER V9.00   INT0BLINK                                                             04/07/2025 15:11:15 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE INT0BLINK
+OBJECT MODULE PLACED IN int0blink.OBJ
+COMPILER INVOKED BY: C:\Keil\C51\BIN\c51.exe int0blink.c DB OE BR INCDIR(C:\SiLabs\MCU_2\Inc)
+
+line level    source
+
+   1          #include <c8051f120.h>                    // SFR declarations
+   2          
+   3          sbit LED = P1^6;                         // LED on P1.6
+   4          
+   5          // Function Prototypes
+   6          void PORT_Init(void);
+   7          void Ext0_Init(void);
+   8          
+   9          void main(void)
+  10          {
+  11   1          // Disable watchdog timer
+  12   1          WDTCN = 0xde;
+  13   1          WDTCN = 0xad;
+  14   1      
+  15   1          SFRPAGE = CONFIG_PAGE;               // Switch to configuration page
+  16   1          PORT_Init();
+  17   1          Ext0_Init();                         // Initialize External Interrupt 0
+  18   1      
+  19   1          EA = 1;                              // Enable global interrupts
+  20   1      
+  21   1          while(1)
+  22   1          {
+  23   2              // Main loop does nothing; LED toggling occur in Interrupt
+  24   2          }
+  25   1      }
+  26          
+  27          void PORT_Init(void)
+  28          {
+  29   1          // Enable Crossbar and weak pull-ups.
+  30   1          XBR2 = 0x40;
+  31   1          
+  32   1          // Configure LED pin (P1.6) as push-pull output.
+  33   1          P1MDOUT |= 0x40;                     // 0x40 = 0100 0000; bit6 => LED
+  34   1      }
+  35          
+  36          void Ext0_Init(void)
+  37          {
+  38   1          IT0 = 1;                             // Configure INT0 as edge triggered
+  39   1          EX0 = 1;                             // Enable External Interrupt 0
+  40   1      }
+  41          
+  42          // External Interrupt 0 Service Routine
+  43          void INT0_ISR(void) interrupt 0
+  44          {
+  45   1          LED = ~LED;                          // Toggle LED state
+  46   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =     34    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+C51 COMPILER V9.00   INT0BLINK                                                             04/07/2025 15:11:15 PAGE 2   
+
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

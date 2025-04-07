@@ -1,0 +1,276 @@
+C51 COMPILER V9.00   TRANSMITTERCODE                                                       04/07/2025 15:20:39 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE TRANSMITTERCODE
+OBJECT MODULE PLACED IN transmitterCode.OBJ
+COMPILER INVOKED BY: C:\Keil\C51\BIN\c51.exe transmitterCode.c DB OE BR INCDIR(C:\SiLabs\MCU_2\Inc)
+
+line level    source
+
+   1          // A.3 Transmitter (master) Configuration Code that allows multiprocessor communications via universal asy
+             -nchronous receiver and transmitter (UART)
+   2          #include <c8051f120.h>
+   3          
+   4          //------------------------------------------------------------------------------------
+   5          // Global CONSTANTS
+   6          //------------------------------------------------------------------------------------
+   7          #define ADDRESS 0x05
+   8          #define S 0x24 // Letter codes
+   9          #define E 0x30
+  10          #define N 0x6A
+  11          #define T 0x70
+  12          #define D 0x42
+  13          #define O 0x62
+  14          
+  15          //------------------------------------------------------------------------------------
+  16          // Function PROTOTYPES
+  17          //------------------------------------------------------------------------------------
+  18          void UART_Init();
+  19          void Interrupts_Init();
+  20          void Timer_Init();
+  21          void Port_IO_Init();
+  22          void Oscillator_Init();
+  23          void LED_Init(void);
+  24          
+  25          //------------------------------------------------------------------------------------
+  26          // Variable Declaration
+  27          //------------------------------------------------------------------------------------
+  28          int xdata fill[256];
+  29          int data dummy = 0;
+  30          int n = 0;
+  31          short refresher = 0;
+  32          int led_flash_counter = 0;
+  33          
+  34          sbit MSEL1 = P1 ^ 5; // Multiplexer Select bits
+  35          sbit MSEL0 = P1 ^ 4;
+  36          
+  37          sbit  LED = P1^6;                         // green LED: '1' = ON; '0' = OFF
+  38          
+  39          //------------------------------------------------------------------------------------
+  40          // MAIN Routine
+  41          //------------------------------------------------------------------------------------
+  42          void main(void)
+  43          {
+  44   1          // Disable watchdog timer
+  45   1          WDTCN = 0xde;
+  46   1          WDTCN = 0xad;
+  47   1      
+  48   1          Timer_Init();
+  49   1          UART_Init();
+  50   1          Interrupts_Init();
+  51   1          Port_IO_Init();
+  52   1          Oscillator_Init();
+  53   1          LED_Init();
+  54   1      
+C51 COMPILER V9.00   TRANSMITTERCODE                                                       04/07/2025 15:20:39 PAGE 2   
+
+  55   1          SFRPAGE = LEGACY_PAGE; // Set to legacy page
+  56   1      
+  57   1          while (1)
+  58   1          { // Spin forever
+  59   2          }
+  60   1      }
+  61          
+  62          void LED_Init(void)
+  63          {
+  64   1          P1MDOUT |= 0x40;
+  65   1          LED = 0;
+  66   1      }
+  67          
+  68          //-----------------------------------------------------------------------------
+  69          // Initialization Subroutines
+  70          //-----------------------------------------------------------------------------
+  71          void Timer_Init()
+  72          {
+  73   1          SFRPAGE = TIMER01_PAGE;
+  74   1          TMOD = 0x21;
+  75   1          // Timer 0 uses a pre-scaled SYSCLK; Timer 1 for baud rate generation
+  76   1          TH0 = 0xDC; // Load initial value into Timer 0
+  77   1          TL0 = 0x00;
+  78   1          TH1 = 0xFA;  // Load initial value into Timer 1
+  79   1          TCON = 0x41; // Enable Timer 1 and set INT0 as edge triggered
+  80   1      }
+  81          
+  82          void UART_Init()
+  83          {
+  84   1          SFRPAGE = UART0_PAGE;
+  85   1          SCON0 = 0xC0;
+  86   1      }
+  87          
+  88          void Interrupts_Init()
+  89          {
+  90   1          IE = 0x91;
+  91   1          IP = 0x10; // Set UART0 interrupt priority
+  92   1      }
+  93          
+  94          void Oscillator_Init()
+  95          {
+  96   1          int i = 0;
+  97   1          SFRPAGE = CONFIG_PAGE;
+  98   1          OSCXCN = 0x67; // Enable external oscillator (22.1184 MHz)
+  99   1          for (i = 0; i < 3000; i++)
+ 100   1              ; // Wait for oscillator to stabilize
+ 101   1          while ((OSCXCN & 0x80) == 0)
+ 102   1              ;          // Wait for XTLVLD flag
+ 103   1          CLKSEL = 0x01; // Switch to external oscillator
+ 104   1          OSCICN = 0x00;
+ 105   1      }
+ 106          
+ 107          void Port_IO_Init()
+ 108          {
+ 109   1          // P0.0 - TX0 (UART0) as Push-Pull Digital Output
+ 110   1          SFRPAGE = CONFIG_PAGE;
+ 111   1          P0MDOUT = 0x01; // Set P0.0 to push-pull mode
+ 112   1          XBR0 = 0x04;    // Route UART0 TX to P0.0
+ 113   1          XBR1 = 0x04;    // Route external interrupt 0 to P0.2
+ 114   1          XBR2 = 0x40;    // Enable crossbar and weak pull-ups
+ 115   1      }
+ 116          
+C51 COMPILER V9.00   TRANSMITTERCODE                                                       04/07/2025 15:20:39 PAGE 3   
+
+ 117          //-----------------------------------------------------------------------------
+ 118          // Support Subroutines
+ 119          //-----------------------------------------------------------------------------
+ 120          // The following routine writes 00 to FF into a RAM array.
+ 121          void fillup()
+ 122          {
+ 123   1          char SFRPAGE_SAVE = SFRPAGE; // Save current SFR page
+ 124   1          int i;
+ 125   1          for (i = 0; i < 256; i++)
+ 126   1          {
+ 127   2              fill[i] = i; // Write values from 0x00 to 0xFF into array "fill"
+ 128   2          }
+ 129   1      
+ 130   1          // send 0x00 to 0xFF to the slave, manually add the data to the array
+ 131   1          // fill[0] = 0x00;
+ 132   1          // fill[1] = 0xFF;
+ 133   1          // fill[2] = 0x00;
+ 134   1          // fill[3] = 0xFF;
+ 135   1          // fill[4] = 0x00;
+ 136   1          // fill[5] = 0xFF;
+ 137   1          // fill[6] = 0x00;
+ 138   1          // fill[7] = 0xFF;
+ 139   1          // fill[8] = 0x00;
+ 140   1          // fill[9] = 0xFF;
+ 141   1      
+ 142   1          dummy = 1;
+ 143   1          SFRPAGE = TIMER01_PAGE;
+ 144   1          TR0 |= 1;               // Turn on Timer 0 run control
+ 145   1          ET0 |= 1;               // Enable Timer 0 overflow interrupt
+ 146   1          SFRPAGE = SFRPAGE_SAVE; // Restore SFR page
+ 147   1      }
+ 148          
+ 149          //-----------------------------------------------------------------------------------
+ 150          // Interrupt Service Routine
+ 151          //-----------------------------------------------------------------------------------
+ 152          void EX0_ISR(void) interrupt 0
+ 153          {
+ 154   1          if (dummy == 0)
+ 155   1              fillup();
+ 156   1          else
+ 157   1          {
+ 158   2              TB80 = 1;        // Make all slaves listen
+ 159   2              SBUF0 = ADDRESS; // Send out address to specify listener
+ 160   2          }
+ 161   1      }
+ 162          
+ 163          void Timer0_ISR(void) interrupt 1
+ 164          {
+ 165   1          char SFRPAGE_SAVE = SFRPAGE; // Save current SFR page
+ 166   1          // Reload Timer 0 (critical region)
+ 167   1          EA = 0; // Disable interrupts
+ 168   1          SFRPAGE = TIMER01_PAGE;
+ 169   1          TH0 = 0xDC; // Load initial value
+ 170   1          TL0 = 0x00;
+ 171   1          EA = 1;                 // Re-enable interrupts
+ 172   1          SFRPAGE = SFRPAGE_SAVE; // Restore SFR page
+ 173   1      
+ 174   1          // LED flashing code - add this section
+ 175   1          led_flash_counter++;
+ 176   1          if (led_flash_counter >= 20)
+ 177   1          {                          // Adjust this value for faster/slower flashing
+ 178   2              LED = !LED;            // Toggle LED state
+C51 COMPILER V9.00   TRANSMITTERCODE                                                       04/07/2025 15:20:39 PAGE 4   
+
+ 179   2              led_flash_counter = 0; // Reset counter
+ 180   2          }
+ 181   1      
+ 182   1          if (dummy != 0)
+ 183   1          {
+ 184   2              // TDM approach to display RECD (or similar status)
+ 185   2              switch (refresher)
+ 186   2              {
+ 187   3              case 0:
+ 188   3                  MSEL1 = 0;
+ 189   3                  MSEL0 = 0;
+ 190   3                  if (dummy == 1)
+ 191   3                      P2 = D;
+ 192   3                  else
+ 193   3                      P2 = S;
+ 194   3                  refresher++;
+ 195   3                  break;
+ 196   3              case 1:
+ 197   3                  MSEL1 = 0;
+ 198   3                  MSEL0 = 1;
+ 199   3                  if (dummy == 1)
+ 200   3                      P2 = O;
+ 201   3                  else
+ 202   3                      P2 = E;
+ 203   3                  refresher++;
+ 204   3                  break;
+ 205   3              case 2:
+ 206   3                  MSEL1 = 1;
+ 207   3                  MSEL0 = 0;
+ 208   3                  P2 = N;
+ 209   3                  refresher++;
+ 210   3                  break;
+ 211   3              case 3:
+ 212   3                  MSEL1 = 1;
+ 213   3                  MSEL0 = 1;
+ 214   3                  if (dummy == 1)
+ 215   3                      P2 = E;
+ 216   3                  else
+ 217   3                      P2 = T;
+ 218   3                  refresher = 0;
+ 219   3                  break;
+ 220   3              default:
+ 221   3                  break;
+ 222   3              }
+ 223   2          }
+ 224   1      } // Timer0_ISR()
+ 225          
+ 226          //-----------------------------------------------------------------------------------
+ 227          // SBUF INTERRUPT
+ 228          //-----------------------------------------------------------------------------------
+ 229          void ES_ISR(void) interrupt 4
+ 230          {
+ 231   1          TI0 = 0;
+ 232   1          TB80 = 0; // Only the chosen listener will listen (after sending address byte)
+ 233   1      
+ 234   1          if (n < 256)
+ 235   1          {
+ 236   2              SBUF0 = fill[n];
+ 237   2              n++;
+ 238   2          }
+ 239   1          else
+ 240   1          {
+C51 COMPILER V9.00   TRANSMITTERCODE                                                       04/07/2025 15:20:39 PAGE 5   
+
+ 241   2              dummy = 2;
+ 242   2              LED = 1;
+ 243   2          }
+ 244   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    497    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =    512    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      8    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
