@@ -25,7 +25,7 @@ void LED_Init(void);
 //------------------------------------------------------------------------------------
 // Variable Declaration
 //------------------------------------------------------------------------------------
-int xdata fill[256];
+int xdata fill[9];
 int data dummy = 0;
 int n = 0;
 short refresher = 0;
@@ -34,7 +34,7 @@ int led_flash_counter = 0;
 sbit MSEL1 = P1 ^ 5; // Multiplexer Select bits
 sbit MSEL0 = P1 ^ 4;
 
-sbit  LED = P1^6;                         // green LED: '1' = ON; '0' = OFF
+sbit LED = P1 ^ 6; // green LED: '1' = ON; '0' = OFF
 
 //------------------------------------------------------------------------------------
 // MAIN Routine
@@ -75,7 +75,8 @@ void Timer_Init()
     // Timer 0 uses a pre-scaled SYSCLK; Timer 1 for baud rate generation
     TH0 = 0xDC; // Load initial value into Timer 0
     TL0 = 0x00;
-    TH1 = 0xFA;  // Load initial value into Timer 1
+    // TH1 = 0xFA;  // Load initial value into Timer 1
+    TH1 = 0xF4; // Load initial value into Timer 1 for 9600 baud rate
     TCON = 0x41; // Enable Timer 1 and set INT0 as edge triggered
 }
 
@@ -121,23 +122,23 @@ void Port_IO_Init()
 void fillup()
 {
     char SFRPAGE_SAVE = SFRPAGE; // Save current SFR page
-    int i;
-    for (i = 0; i < 256; i++)
-    {
-        fill[i] = i; // Write values from 0x00 to 0xFF into array "fill"
-    }
+    // int i;
+    // for (i = 0; i < 256; i++)
+    // {
+    //     fill[i] = i; // Write values from 0x00 to 0xFF into array "fill"
+    // }
 
     // send 0x00 to 0xFF to the slave, manually add the data to the array
-    // fill[0] = 0x00;
-    // fill[1] = 0xFF;
-    // fill[2] = 0x00;
-    // fill[3] = 0xFF;
-    // fill[4] = 0x00;
-    // fill[5] = 0xFF;
-    // fill[6] = 0x00;
-    // fill[7] = 0xFF;
-    // fill[8] = 0x00;
-    // fill[9] = 0xFF;
+    fill[0] = 0x00;
+    fill[1] = 0x00;
+    fill[2] = 0x00;
+    fill[3] = 0x00;
+    fill[4] = 0x00;
+    fill[5] = 0xFF;
+    fill[6] = 0xFF;
+    fill[7] = 0xFF;
+    fill[8] = 0xFF;
+    fill[9] = 0xFF;
 
     dummy = 1;
     SFRPAGE = TIMER01_PAGE;

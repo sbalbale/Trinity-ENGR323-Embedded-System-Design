@@ -1,11 +1,11 @@
-BL51 BANKED LINKER/LOCATER V6.22              04/07/2025  15:20:40  PAGE 1
+BL51 BANKED LINKER/LOCATER V6.22              04/09/2025  16:02:39  PAGE 1
 
 
 BL51 BANKED LINKER/LOCATER V6.22, INVOKED BY:
 C:\KEIL\C51\BIN\BL51.EXE C:\Users\seanb\Documents\Trinity-ENGR323-Embedded-Sys
->> tem-Design\lab05\master\transmitterCode.obj TO C:\Users\seanb\Documents\Tri
->> nity-ENGR323-Embedded-System-Design\lab05\master\transmitter RS (256) PL (6
->> 8) PW (78)
+>> tem-Design\lab05\master\master.obj TO C:\Users\seanb\Documents\Trinity-ENGR
+>> 323-Embedded-System-Design\lab05\master\transmitter RS (256) PL (68) PW (78
+>> )
 
 
 MEMORY MODEL: SMALL
@@ -13,13 +13,13 @@ MEMORY MODEL: SMALL
 
 INPUT MODULES INCLUDED:
   C:\Users\seanb\Documents\Trinity-ENGR323-Embedded-System-Design\lab05\master
->> \transmitterCode.obj (TRANSMITTERCODE)
+>> \master.obj (MASTER)
   C:\KEIL\C51\LIB\C51S.LIB (?C_STARTUP)
   C:\KEIL\C51\LIB\C51S.LIB (?C_INIT)
 
 
 LINK MAP OF MODULE:  C:\Users\seanb\Documents\Trinity-ENGR323-Embedded-System-
->> Design\lab05\master\transmitter (TRANSMITTERCODE)
+>> Design\lab05\master\transmitter (MASTER)
 
 
             TYPE    BASE      LENGTH    RELOCATION   SEGMENT NAME
@@ -27,11 +27,11 @@ LINK MAP OF MODULE:  C:\Users\seanb\Documents\Trinity-ENGR323-Embedded-System-
 
             * * * * * * *   D A T A   M E M O R Y   * * * * * * *
             REG     0000H     0008H     ABSOLUTE     "REG BANK 0"
-            DATA    0008H     0008H     UNIT         ?DT?TRANSMITTERCODE
-            IDATA   0010H     0001H     UNIT         ?STACK
+            DATA    0008H     0006H     UNIT         ?DT?MASTER
+            IDATA   000EH     0001H     UNIT         ?STACK
 
             * * * * * * *  X D A T A   M E M O R Y  * * * * * * *
-            XDATA   0000H     0200H     UNIT         ?XD?TRANSMITTERCODE
+            XDATA   0000H     0200H     UNIT         ?XD?MASTER
 
             * * * * * * *   C O D E   M E M O R Y   * * * * * * *
             CODE    0000H     0003H     ABSOLUTE     
@@ -41,68 +41,60 @@ LINK MAP OF MODULE:  C:\Users\seanb\Documents\Trinity-ENGR323-Embedded-System-
                     000EH     0015H                  *** GAP ***
             CODE    0023H     0003H     ABSOLUTE     
                     0026H     07DAH                  *** GAP ***
-            CODE    0800H     00BCH     UNIT         ?PR?TIMER0_ISR?TRANSMITTE
->> RCODE
-            CODE    08BCH     008CH     UNIT         ?C_C51STARTUP
-            CODE    0948H     0052H     UNIT         ?PR?ES_ISR?TRANSMITTERCOD
->> E
-            CODE    099AH     0038H     UNIT         ?PR?FILLUP?TRANSMITTERCOD
->> E
-            CODE    09D2H     0038H     UNIT         ?PR?EX0_ISR?TRANSMITTERCO
->> DE
-            CODE    0A0AH     0020H     UNIT         ?PR?OSCILLATOR_INIT?TRANS
->> MITTERCODE
-            CODE    0A2AH     001DH     UNIT         ?PR?MAIN?TRANSMITTERCODE
-            CODE    0A47H     0012H     UNIT         ?PR?TIMER_INIT?TRANSMITTE
->> RCODE
-            CODE    0A59H     0011H     UNIT         ?C_INITSEG
-            CODE    0A6AH     0010H     UNIT         ?PR?PORT_IO_INIT?TRANSMIT
->> TERCODE
-            CODE    0A7AH     0007H     UNIT         ?PR?UART_INIT?TRANSMITTER
->> CODE
-            CODE    0A81H     0007H     UNIT         ?PR?INTERRUPTS_INIT?TRANS
->> MITTERCODE
-            CODE    0A88H     0006H     UNIT         ?PR?LED_INIT?TRANSMITTERC
->> ODE
+            CODE    0800H     00A1H     UNIT         ?PR?TIMER0_ISR?MASTER
+            CODE    08A1H     008CH     UNIT         ?C_C51STARTUP
+            CODE    092DH     0020H     UNIT         ?PR?OSCILLATOR_INIT?MASTE
+>> R
+            CODE    094DH     0020H     UNIT         ?PR?EX0_ISR?MASTER
+            CODE    096DH     001DH     UNIT         ?PR?MAIN?MASTER
+            CODE    098AH     0016H     UNIT         ?PR?PORT_IO_INIT?MASTER
+            CODE    09A0H     0012H     UNIT         ?PR?TIMER_INIT?MASTER
+            CODE    09B2H     0012H     UNIT         ?PR?FILLUP?MASTER
+            CODE    09C4H     000DH     UNIT         ?C_INITSEG
+            CODE    09D1H     0008H     UNIT         ?PR?ES_ISR?MASTER
+            CODE    09D9H     0007H     UNIT         ?PR?UART_INIT?MASTER
+            CODE    09E0H     0007H     UNIT         ?PR?INTERRUPTS_INIT?MASTE
+>> R
+            CODE    09E7H     0006H     UNIT         ?PR?LED_INIT?MASTER
 
-
-
-BL51 BANKED LINKER/LOCATER V6.22            04/07/2025  15:20:40  PAGE 2
 
 
 OVERLAY MAP OF MODULE:   C:\Users\seanb\Documents\Trinity-ENGR323-Embedded-Sys
->> tem-Design\lab05\master\transmitter (TRANSMITTERCODE)
+>> tem-Design\lab05\master\transmitter (MASTER)
 
 
 SEGMENT
   +--> CALLED SEGMENT
 ---------------------
-?PR?EX0_ISR?TRANSMITTERCODE
-  +--> ?PR?FILLUP?TRANSMITTERCODE
+?PR?EX0_ISR?MASTER
+BL51 BANKED LINKER/LOCATER V6.22            04/09/2025  16:02:39  PAGE 2
+
+
+  +--> ?PR?FILLUP?MASTER
 
 *** NEW ROOT ***************************************************
 
 ?C_C51STARTUP
-  +--> ?PR?MAIN?TRANSMITTERCODE
+  +--> ?PR?MAIN?MASTER
   +--> ?C_INITSEG
 
-?PR?MAIN?TRANSMITTERCODE
-  +--> ?PR?TIMER_INIT?TRANSMITTERCODE
-  +--> ?PR?UART_INIT?TRANSMITTERCODE
-  +--> ?PR?INTERRUPTS_INIT?TRANSMITTERCODE
-  +--> ?PR?PORT_IO_INIT?TRANSMITTERCODE
-  +--> ?PR?OSCILLATOR_INIT?TRANSMITTERCODE
-  +--> ?PR?LED_INIT?TRANSMITTERCODE
+?PR?MAIN?MASTER
+  +--> ?PR?TIMER_INIT?MASTER
+  +--> ?PR?UART_INIT?MASTER
+  +--> ?PR?INTERRUPTS_INIT?MASTER
+  +--> ?PR?PORT_IO_INIT?MASTER
+  +--> ?PR?OSCILLATOR_INIT?MASTER
+  +--> ?PR?LED_INIT?MASTER
 
 
 
 SYMBOL TABLE OF MODULE:  C:\Users\seanb\Documents\Trinity-ENGR323-Embedded-Sys
->> tem-Design\lab05\master\transmitter (TRANSMITTERCODE)
+>> tem-Design\lab05\master\transmitter (MASTER)
 
   VALUE           TYPE          NAME
   ----------------------------------
 
-  -------         MODULE        TRANSMITTERCODE
+  -------         MODULE        MASTER
   C:0000H         SYMBOL        _ICE_DUMMY_
   B:0098H.3       PUBLIC        TB80
   D:0090H         PUBLIC        P1
@@ -115,39 +107,39 @@ SYMBOL TABLE OF MODULE:  C:\Users\seanb\Documents\Trinity-ENGR323-Embedded-Sys
   D:00A4H         PUBLIC        P0MDOUT
   D:00E8H         PUBLIC        ADC2CN
   D:00A5H         PUBLIC        P1MDOUT
-  D:0008H         PUBLIC        led_flash_counter
   D:00A8H         PUBLIC        IE
-  C:099AH         PUBLIC        fillup
-  C:0A6AH         PUBLIC        Port_IO_Init
+  D:00A6H         PUBLIC        P2MDOUT
+  C:09B2H         PUBLIC        fillup
+  C:098AH         PUBLIC        Port_IO_Init
   D:00D8H         PUBLIC        PCA0CN
   D:00B8H         PUBLIC        IP
-  C:0A0AH         PUBLIC        Oscillator_Init
-  C:09D2H         PUBLIC        EX0_ISR
+  C:092DH         PUBLIC        Oscillator_Init
+  C:094DH         PUBLIC        EX0_ISR
   D:00E1H         PUBLIC        XBR0
   D:00E2H         PUBLIC        XBR1
   D:00E3H         PUBLIC        XBR2
   D:00C0H         PUBLIC        SMB0CN
-  C:0A2AH         PUBLIC        main
+  C:096DH         PUBLIC        main
   X:0000H         PUBLIC        fill
   D:0088H         PUBLIC        CPT0CN
   D:0088H         PUBLIC        CPT1CN
-  D:000AH         PUBLIC        dummy
+  D:0008H         PUBLIC        dummy
   D:00F8H         PUBLIC        SPI0CN
-  C:0A7AH         PUBLIC        UART_Init
+  C:09D9H         PUBLIC        UART_Init
   D:0089H         PUBLIC        TMOD
-BL51 BANKED LINKER/LOCATER V6.22            04/07/2025  15:20:40  PAGE 3
-
-
   D:0088H         PUBLIC        TCON
   D:00C8H         PUBLIC        TMR2CN
   D:00C8H         PUBLIC        TMR3CN
   D:00C8H         PUBLIC        TMR4CN
-  C:0A81H         PUBLIC        Interrupts_Init
+  C:09E0H         PUBLIC        Interrupts_Init
   D:0097H         PUBLIC        CLKSEL
   D:008AH         PUBLIC        OSCICN
   B:00A8H.1       PUBLIC        ET0
-  D:000CH         PUBLIC        refresher
-  C:0A88H         PUBLIC        LED_Init
+BL51 BANKED LINKER/LOCATER V6.22            04/09/2025  16:02:39  PAGE 3
+
+
+  D:000AH         PUBLIC        refresher
+  C:09E7H         PUBLIC        LED_Init
   D:008CH         PUBLIC        TH0
   B:0098H.1       PUBLIC        TI0
   D:008DH         PUBLIC        TH1
@@ -161,202 +153,182 @@ SYMBOL TABLE OF MODULE:  C:\Users\seanb\Documents\Trinity-ENGR323-Embedded-Sys
   B:0090H.5       PUBLIC        MSEL1
   D:0098H         PUBLIC        SCON0
   D:0098H         PUBLIC        SCON1
-  C:0948H         PUBLIC        ES_ISR
-  D:000EH         PUBLIC        n
-  C:0A47H         PUBLIC        Timer_Init
+  C:09D1H         PUBLIC        ES_ISR
+  D:000CH         PUBLIC        n
+  C:09A0H         PUBLIC        Timer_Init
   D:00D0H         PUBLIC        PSW
   -------         PROC          MAIN
-  C:0A2AH         LINE#         42
-  C:0A2AH         LINE#         43
-  C:0A2AH         LINE#         45
-  C:0A2DH         LINE#         46
-  C:0A30H         LINE#         48
-  C:0A33H         LINE#         49
-  C:0A36H         LINE#         50
-  C:0A39H         LINE#         51
-  C:0A3CH         LINE#         52
-  C:0A3FH         LINE#         53
-  C:0A42H         LINE#         55
-  C:0A45H         LINE#         57
-  C:0A45H         LINE#         58
-  C:0A45H         LINE#         59
+  C:096DH         LINE#         39
+  C:096DH         LINE#         41
+  C:0970H         LINE#         42
+  C:0973H         LINE#         44
+  C:0976H         LINE#         45
+  C:0979H         LINE#         46
+  C:097CH         LINE#         47
+  C:097FH         LINE#         48
+  C:0982H         LINE#         49
+  C:0985H         LINE#         51
+  C:0988H         LINE#         53
+  C:0988H         LINE#         55
   -------         ENDPROC       MAIN
   -------         PROC          LED_INIT
-  C:0A88H         LINE#         62
-  C:0A88H         LINE#         63
-  C:0A88H         LINE#         64
-  C:0A8BH         LINE#         65
-  C:0A8DH         LINE#         66
+  C:09E7H         LINE#         61
+  C:09E7H         LINE#         62
+  C:09E7H         LINE#         63
+  C:09EAH         LINE#         64
+  C:09ECH         LINE#         65
   -------         ENDPROC       LED_INIT
   -------         PROC          TIMER_INIT
-  C:0A47H         LINE#         71
-  C:0A47H         LINE#         72
-  C:0A47H         LINE#         73
-  C:0A4AH         LINE#         74
-  C:0A4DH         LINE#         76
-  C:0A50H         LINE#         77
-  C:0A52H         LINE#         78
-  C:0A55H         LINE#         79
-  C:0A58H         LINE#         80
+  C:09A0H         LINE#         67
+  C:09A0H         LINE#         68
+  C:09A0H         LINE#         69
+  C:09A3H         LINE#         70
+  C:09A6H         LINE#         71
+  C:09A9H         LINE#         72
+  C:09ABH         LINE#         73
+  C:09AEH         LINE#         74
+  C:09B1H         LINE#         76
   -------         ENDPROC       TIMER_INIT
   -------         PROC          UART_INIT
-  C:0A7AH         LINE#         82
-  C:0A7AH         LINE#         83
-  C:0A7AH         LINE#         84
-BL51 BANKED LINKER/LOCATER V6.22            04/07/2025  15:20:40  PAGE 4
-
-
-  C:0A7DH         LINE#         85
-  C:0A80H         LINE#         86
+  C:09D9H         LINE#         78
+  C:09D9H         LINE#         79
+  C:09D9H         LINE#         80
+  C:09DCH         LINE#         81
+  C:09DFH         LINE#         82
   -------         ENDPROC       UART_INIT
   -------         PROC          INTERRUPTS_INIT
-  C:0A81H         LINE#         88
-  C:0A81H         LINE#         89
-  C:0A81H         LINE#         90
-  C:0A84H         LINE#         91
-  C:0A87H         LINE#         92
+  C:09E0H         LINE#         84
+  C:09E0H         LINE#         85
+  C:09E0H         LINE#         86
+  C:09E3H         LINE#         87
+  C:09E6H         LINE#         88
   -------         ENDPROC       INTERRUPTS_INIT
+BL51 BANKED LINKER/LOCATER V6.22            04/09/2025  16:02:39  PAGE 4
+
+
   -------         PROC          OSCILLATOR_INIT
   -------         DO            
   D:0006H         SYMBOL        i
   -------         ENDDO         
-  C:0A0AH         LINE#         94
-  C:0A0AH         LINE#         95
-  C:0A0AH         LINE#         96
-  C:0A0DH         LINE#         97
-  C:0A10H         LINE#         98
-  C:0A13H         LINE#         99
-  C:0A1EH         LINE#         101
-  C:0A23H         LINE#         103
-  C:0A26H         LINE#         104
-  C:0A29H         LINE#         105
+  C:092DH         LINE#         90
+  C:092DH         LINE#         91
+  C:092DH         LINE#         93
+  C:0930H         LINE#         94
+  C:0933H         LINE#         97
+  C:0936H         LINE#         100
+  C:0941H         LINE#         103
+  C:0946H         LINE#         106
+  C:0949H         LINE#         107
+  C:094CH         LINE#         108
   -------         ENDPROC       OSCILLATOR_INIT
   -------         PROC          PORT_IO_INIT
-  C:0A6AH         LINE#         107
-  C:0A6AH         LINE#         108
-  C:0A6AH         LINE#         110
-  C:0A6DH         LINE#         111
-  C:0A70H         LINE#         112
-  C:0A73H         LINE#         113
-  C:0A76H         LINE#         114
-  C:0A79H         LINE#         115
+  C:098AH         LINE#         110
+  C:098AH         LINE#         111
+  C:098AH         LINE#         113
+  C:098DH         LINE#         114
+  C:0990H         LINE#         117
+  C:0993H         LINE#         118
+  C:0996H         LINE#         120
+  C:0999H         LINE#         121
+  C:099CH         LINE#         122
+  C:099FH         LINE#         123
   -------         ENDPROC       PORT_IO_INIT
   -------         PROC          FILLUP
   -------         DO            
-  D:0005H         SYMBOL        SFRPAGE_SAVE
-  D:0002H         SYMBOL        i
+  D:0007H         SYMBOL        SFRPAGE_SAVE
   -------         ENDDO         
-  C:099AH         LINE#         121
-  C:099AH         LINE#         122
-  C:099AH         LINE#         123
-  C:099CH         LINE#         125
-  C:099FH         LINE#         126
-  C:099FH         LINE#         127
-  C:09B5H         LINE#         128
-  C:09C2H         LINE#         142
-  C:09C8H         LINE#         143
-  C:09CBH         LINE#         144
-  C:09CDH         LINE#         145
-  C:09CFH         LINE#         146
-  C:09D1H         LINE#         147
+  C:09B2H         LINE#         129
+  C:09B2H         LINE#         130
+  C:09B2H         LINE#         131
+  C:09B4H         LINE#         141
+  C:09BAH         LINE#         143
+  C:09BDH         LINE#         144
+  C:09BFH         LINE#         145
+  C:09C1H         LINE#         147
+  C:09C3H         LINE#         148
   -------         ENDPROC       FILLUP
   -------         PROC          EX0_ISR
-  C:09D2H         LINE#         152
-  C:09E7H         LINE#         154
-  C:09EDH         LINE#         155
-  C:09F2H         LINE#         157
-  C:09F2H         LINE#         158
-  C:09F4H         LINE#         159
-  C:09F7H         LINE#         160
-  C:09F7H         LINE#         161
+  C:094DH         LINE#         153
+  C:0956H         LINE#         155
+  C:095CH         LINE#         156
+  C:095CH         LINE#         157
+  C:095FH         LINE#         158
+  C:0961H         LINE#         160
+  C:0961H         LINE#         161
+  C:0963H         LINE#         162
+  C:0966H         LINE#         163
+  C:0966H         LINE#         164
   -------         ENDPROC       EX0_ISR
   -------         PROC          TIMER0_ISR
-BL51 BANKED LINKER/LOCATER V6.22            04/07/2025  15:20:40  PAGE 5
-
-
   -------         DO            
   D:0007H         SYMBOL        SFRPAGE_SAVE
   -------         ENDDO         
-  C:0800H         LINE#         163
-  C:0809H         LINE#         165
-  C:080BH         LINE#         167
-  C:080DH         LINE#         168
-  C:0810H         LINE#         169
-  C:0813H         LINE#         170
-  C:0816H         LINE#         171
-  C:0818H         LINE#         172
-  C:081AH         LINE#         175
-  C:0822H         LINE#         176
-  C:082DH         LINE#         177
-  C:082DH         LINE#         178
-  C:082FH         LINE#         179
-  C:0835H         LINE#         180
-  C:0835H         LINE#         182
-  C:083BH         LINE#         183
-  C:083BH         LINE#         185
-  C:084EH         LINE#         186
-  C:084EH         LINE#         187
-  C:084EH         LINE#         188
-  C:0850H         LINE#         189
-  C:0852H         LINE#         190
-  C:085AH         LINE#         191
-  C:085FH         LINE#         193
-  C:0862H         LINE#         194
-  C:086AH         LINE#         195
-  C:086CH         LINE#         196
-  C:086CH         LINE#         197
-  C:086EH         LINE#         198
-  C:0870H         LINE#         199
-  C:0878H         LINE#         200
-  C:087DH         LINE#         202
-  C:0880H         LINE#         203
-  C:0888H         LINE#         204
-  C:088AH         LINE#         205
-  C:088AH         LINE#         206
-  C:088CH         LINE#         207
-  C:088EH         LINE#         208
-  C:0891H         LINE#         209
-  C:0899H         LINE#         210
-  C:089BH         LINE#         211
-  C:089BH         LINE#         212
-  C:089DH         LINE#         213
-  C:089FH         LINE#         214
-  C:08A7H         LINE#         215
-  C:08ACH         LINE#         217
-  C:08AFH         LINE#         218
-  C:08B5H         LINE#         219
-  C:08B5H         LINE#         220
-  C:08B5H         LINE#         221
-  C:08B5H         LINE#         222
-  C:08B5H         LINE#         223
-  C:08B5H         LINE#         224
+  C:0800H         LINE#         166
+  C:0809H         LINE#         168
+  C:080BH         LINE#         171
+  C:080DH         LINE#         172
+  C:0810H         LINE#         173
+  C:0813H         LINE#         174
+  C:0816H         LINE#         175
+  C:0818H         LINE#         177
+BL51 BANKED LINKER/LOCATER V6.22            04/09/2025  16:02:39  PAGE 5
+
+
+  C:081AH         LINE#         180
+  C:0820H         LINE#         181
+  C:0820H         LINE#         182
+  C:0833H         LINE#         183
+  C:0833H         LINE#         184
+  C:0833H         LINE#         185
+  C:0835H         LINE#         186
+  C:0837H         LINE#         187
+  C:083FH         LINE#         188
+  C:0844H         LINE#         190
+  C:0847H         LINE#         191
+  C:084FH         LINE#         192
+  C:0851H         LINE#         194
+  C:0851H         LINE#         195
+  C:0853H         LINE#         196
+  C:0855H         LINE#         197
+  C:085DH         LINE#         198
+  C:0862H         LINE#         200
+  C:0865H         LINE#         201
+  C:086DH         LINE#         202
+  C:086FH         LINE#         204
+  C:086FH         LINE#         205
+  C:0871H         LINE#         206
+  C:0873H         LINE#         207
+  C:0876H         LINE#         208
+  C:087EH         LINE#         209
+  C:0880H         LINE#         211
+  C:0880H         LINE#         212
+  C:0882H         LINE#         213
+  C:0884H         LINE#         214
+  C:088CH         LINE#         215
+  C:0891H         LINE#         217
+  C:0894H         LINE#         218
+  C:089AH         LINE#         219
+  C:089AH         LINE#         221
+  C:089AH         LINE#         222
+  C:089AH         LINE#         223
+  C:089AH         LINE#         224
+  C:089AH         LINE#         225
   -------         ENDPROC       TIMER0_ISR
   -------         PROC          ES_ISR
-  C:0948H         LINE#         229
-  C:0957H         LINE#         231
-  C:0959H         LINE#         232
-  C:095BH         LINE#         234
-  C:0964H         LINE#         235
-  C:0964H         LINE#         236
-  C:097BH         LINE#         237
-BL51 BANKED LINKER/LOCATER V6.22            04/07/2025  15:20:40  PAGE 6
-
-
-  C:0983H         LINE#         238
-  C:0985H         LINE#         240
-  C:0985H         LINE#         241
-  C:098BH         LINE#         242
-  C:098DH         LINE#         243
-  C:098DH         LINE#         244
+  C:09D1H         LINE#         230
+  C:09D1H         LINE#         232
+  C:09D3H         LINE#         234
+  C:09D5H         LINE#         236
+  C:09D8H         LINE#         248
   -------         ENDPROC       ES_ISR
-  -------         ENDMOD        TRANSMITTERCODE
+  -------         ENDMOD        MASTER
 
 ******************************************************************************
 >> 
-* RESTRICTED VERSION WITH 0800H BYTE CODE SIZE LIMIT; USED: 020AH BYTE (25%) *
+* RESTRICTED VERSION WITH 0800H BYTE CODE SIZE LIMIT; USED: 0169H BYTE (17%) *
 >> 
 ******************************************************************************
 >> 
 
-Program Size: data=17.0 xdata=512 code=666
+Program Size: data=15.0 xdata=512 code=505
 LINK/LOCATE RUN COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,313 @@
+//-----------------------------------------------------------------------------
+// C8051F120_UART_Master.c
+//-----------------------------------------------------------------------------
+// Copyright 2025
+//
+// Program Description:
+// --------------------
+// This program implements the master device functionality for UART multiprocessor
+// communication as described in ENGR-323L Lab #3.
+//
+// Target:         C8051F120 (or C8051F500DK with potential modifications)
+// Tool chain:     Keil C51 Compiler
+// Clock:          External 22.1184 MHz crystal
+// Baud Rate:      9600 bps
+// UART Mode:      Mode 3 (9-bit UART, variable baud rate)
+//
+// Master Functionality:
+// 1. Initializes UART0, Timer1, External Interrupt 0, Ports, Oscillator.
+// 2. Disables Watchdog Timer.
+// 3. On first /INT0 falling edge (button press): Fills a 64-byte buffer
+//    (internal RAM 0x30-0x6F) with values 0x00 to 0x3F.
+// 4. On second /INT0 falling edge: Sends the SLAVE_ADDRESS (0x05) with TB80=1,
+//    then starts sending the buffer contents (0x00-0x3F) with TB80=0.
+// 5. Uses UART0 TX interrupt (TI0) to send subsequent data bytes.
+//
+// Connections:
+// - P0.0: UART0 TXD (Connect to Slave RXD)
+// - P0.1: UART0 RXD (Connect to Slave TXD - needed if master receives)
+// - P0.2: /INT0 (Connect to a pushbutton tied to GND, with external pull-up)
+// - GND: Connect Master and Slave grounds
+// - XTAL1, XTAL2: Connect 22.1184 MHz crystal and capacitors
+//
+//-----------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------
+// Includes
+//-----------------------------------------------------------------------------
+#include <c8051f120.h> // SFR declarations
+
+//-----------------------------------------------------------------------------
+// Global Constants
+//-----------------------------------------------------------------------------
+#define SYSCLK 22118400L     // System clock frequency in Hz (EXTOSC)
+#define BAUDRATE 9600        // UART0 Baud rate
+#define SLAVE_ADDRESS 0x05   // Address of the slave device
+#define DATA_BUFFER_SIZE 64  // Size of the data buffer (0x00 to 0x3F)
+
+//-----------------------------------------------------------------------------
+// Global Variables
+//-----------------------------------------------------------------------------
+// Using internal data memory (address 0x30-0x6F)
+unsigned char data data_buffer[DATA_BUFFER_SIZE];
+
+unsigned char tx_index;         // Index for data buffer transmission
+bit transmitting = 0;           // Transmission in progress flag
+bit data_filled = 0;            // Flag to indicate buffer is filled
+bit address_sent = 0;           // Flag to indicate address byte was sent
+
+//-----------------------------------------------------------------------------
+// Function Prototypes
+//-----------------------------------------------------------------------------
+void OSCILLATOR_Init (void);
+void PORT_IO_Init (void);
+void TIMER1_Init (void);
+void UART0_Init (void);
+void INTERRUPT_Init (void);
+
+void ISR_EX0 (void) interrupt 0;
+void ISR_UART0 (void) interrupt 4;
+
+//-----------------------------------------------------------------------------
+// main() Routine
+//-----------------------------------------------------------------------------
+void main (void)
+{
+   // Disable watchdog timer
+   WDTCN = 0xDE;
+   WDTCN = 0xAD;
+
+   OSCILLATOR_Init();      // Initialize oscillator
+   PORT_IO_Init();         // Initialize crossbar and GPIO
+   TIMER1_Init();          // Initialize Timer1 for baud rate generation
+   UART0_Init();           // Initialize UART0
+   INTERRUPT_Init();       // Initialize and enable interrupts
+
+   EA = 1;                 // Enable global interrupts
+
+   SFRPAGE = LEGACY_PAGE;  // Set SFR Page for safety
+
+   while (1) {}            // Infinite loop (interrupt driven)
+}
+
+//-----------------------------------------------------------------------------
+// Initialization Subroutines
+//-----------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------
+// OSCILLATOR_Init
+//-----------------------------------------------------------------------------
+//
+// Return Value : None
+// Parameters   : None
+//
+// This function initializes the system clock to use the external 22.1184 MHz
+// crystal oscillator.
+//
+void OSCILLATOR_Init (void)
+{
+   int i;
+
+   SFRPAGE = CONFIG_PAGE;
+   OSCXCN    = 0x67;       // Start external oscillator with 22.1184 MHz crystal
+   for (i=0; i < 3000; i++); // Wait for oscillator start-up time (~1ms)
+   while ((OSCXCN & 0x80) == 0); // Wait for crystal osc. to stabilize (XTLVLD=1)
+
+   CLKSEL    = 0x01;       // Select external oscillator as system clock source
+   OSCICN    = 0x00;       // Disable internal oscillator
+}
+
+//-----------------------------------------------------------------------------
+// PORT_IO_Init
+//-----------------------------------------------------------------------------
+//
+// Return Value : None
+// Parameters   : None
+//
+// Configure the Crossbar and GPIO ports.
+// P0.0 : UART0 TX (Push-Pull Output)
+// P0.1 : UART0 RX (Open-Drain Input) -> Not strictly needed for master TX only
+// P0.2 : /INT0    (Open-Drain Input)
+//
+void PORT_IO_Init (void)
+{
+   SFRPAGE = CONFIG_PAGE;
+   P0MDOUT |= 0x01;        // Enable TX0 (P0.0) as push-pull output
+                           // P0.1 (RX0) and P0.2 (INT0) default to open-drain
+
+   XBR0    = 0x04;         // Enable UART0 on Crossbar (TX0, RX0)
+   XBR1    = 0x04;         // Enable /INT0 input
+   XBR2    = 0x40;         // Enable crossbar and weak pull-ups
+
+   P0SKIP  = 0x00;         // Don't skip any pins on Port0
+   P1SKIP  = 0x00;
+   P2SKIP  = 0x00;
+   P3SKIP  = 0x00;
+}
+
+//-----------------------------------------------------------------------------
+// TIMER1_Init
+//-----------------------------------------------------------------------------
+//
+// Return Value : None
+// Parameters   : None
+//
+// Configure Timer1 to 8-bit auto-reload mode for baud rate generation.
+// Uses the SYSCLK/12 source based on the 22.1184 MHz crystal.
+// TH1 = 256 - (SYSCLK / (12 * 16 * BAUDRATE)) // SMOD0 = 0
+// TH1 = 256 - (22118400 / (12 * 16 * 9600))
+// TH1 = 256 - (22118400 / 1843200)
+// TH1 = 256 - 12 = 244 = 0xF4
+//
+void TIMER1_Init (void)
+{
+   SFRPAGE = TIMER01_PAGE;
+   TMOD   &= ~0xF0;        // Clear Timer1 mode bits
+   TMOD   |=  0x20;        // Timer1 in 8-bit auto-reload mode
+
+   CKCON  &= ~0x10;        // Timer1 uses clock defined by T1M (set to 0)
+                           // T1M=0 -> Prescale bits (SCA1:SCA0) determine clock
+   CKCON  &= ~0x03;        // Use SYSCLK/12 as Timer1 prescaled clock source
+
+   TH1     = 0xF4;         // Set reload value for 9600 baud
+   TL1     = TH1;          // Initialize Timer1 value
+   TR1     = 1;            // Start Timer1
+}
+
+//-----------------------------------------------------------------------------
+// UART0_Init
+//-----------------------------------------------------------------------------
+//
+// Return Value : None
+// Parameters   : None
+//
+// Configure the UART0 using Timer1, for <BAUDRATE> and 9-bit mode.
+//
+void UART0_Init (void)
+{
+   SFRPAGE = UART0_PAGE;
+   SCON0   = 0xF0;         // SCON0: Mode 3, 9-bit UART, enable RX,
+                           //        TB80 initially = 1 (for address)
+                           //        SM2=1 for multiprocessor receive control
+                           //        (RI0=0, TI0=0 initially)
+
+   SSTA0  |= 0x10;         // SMOD0 = 1 -> Double baud rate (requires TH1 adjustment)
+                           // -> Let's keep SMOD0 = 0 for simplicity based on TH1 calc above
+   SSTA0  &= ~0x10;        // SMOD0 = 0
+
+   SSTA0  &= ~0x0F;        // Use Timer1 for TX and RX baud rate clock source
+}
+
+//-----------------------------------------------------------------------------
+// INTERRUPT_Init
+//-----------------------------------------------------------------------------
+//
+// Return Value : None
+// Parameters   : None
+//
+// Configure the Interrupts
+//
+void INTERRUPT_Init (void)
+{
+   SFRPAGE = LEGACY_PAGE;
+   IE |= 0x91;             // Enable UART0 (ES0) and EX0 interrupts
+   IP |= 0x10;             // Make UART0 high priority (optional)
+   IT0 = 1;                // /INT0 is edge triggered (falling edge)
+}
+
+//-----------------------------------------------------------------------------
+// Interrupt Service Routines
+//-----------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------
+// ISR_EX0
+//-----------------------------------------------------------------------------
+//
+// Handles the external interrupt 0 (/INT0) - button press.
+// First press: Fills the data buffer.
+// Second press: Initiates transmission (sends address).
+//
+void ISR_EX0 (void) interrupt 0
+{
+   unsigned char i;
+
+   // Check if data buffer needs filling
+   if (!data_filled)
+   {
+      // Fill buffer with 0x00 to 0x3F
+      for (i = 0; i < DATA_BUFFER_SIZE; i++)
+      {
+         data_buffer[i] = i;
+      }
+      data_filled = 1;
+      // Optional: Indicate buffer filled (e.g., toggle an LED)
+   }
+   // Check if data is filled but not currently transmitting
+   else if (!transmitting)
+   {
+      transmitting = 1;     // Set flag: transmission started
+      tx_index = 0;         // Reset buffer index
+      address_sent = 0;     // Clear address sent flag
+
+      SFRPAGE = UART0_PAGE;
+      TB80 = 1;             // Set 9th bit for address transmission
+      SBUF0 = SLAVE_ADDRESS;// Send the slave address
+      // TI0 interrupt will handle sending the first data byte after address
+   }
+   // Ignore button press if already transmitting
+}
+
+//-----------------------------------------------------------------------------
+// ISR_UART0
+//-----------------------------------------------------------------------------
+//
+// Handles UART0 interrupt (Transmit Complete - TI0).
+// Sends the next byte from the data buffer.
+//
+void ISR_UART0 (void) interrupt 4
+{
+   SFRPAGE = UART0_PAGE;
+
+   // Check if transmit interrupt flag is set
+   if (TI0)
+   {
+      TI0 = 0; // Clear transmit interrupt flag
+
+      // Check if still transmitting data
+      if (transmitting)
+      {
+         // Check if the address byte was just sent
+         if (!address_sent)
+         {
+            address_sent = 1; // Mark address as sent
+            TB80 = 0;         // Clear 9th bit for data transmission
+            SBUF0 = data_buffer[tx_index]; // Send first data byte
+            tx_index++;
+         }
+         // Check if there is more data to send
+         else if (tx_index < DATA_BUFFER_SIZE)
+         {
+            TB80 = 0;         // Ensure 9th bit is clear for data
+            SBUF0 = data_buffer[tx_index]; // Send next data byte
+            tx_index++;
+         }
+         // All data sent
+         else
+         {
+            transmitting = 0; // Clear transmitting flag
+            // Optional: Indicate transmission complete (e.g., toggle LED)
+         }
+      }
+   }
+
+   // Handle Receive Interrupt (RI0) if needed (not required for this lab spec)
+   if (RI0)
+   {
+      RI0 = 0; // Clear receive interrupt flag
+      // Add code here to handle received bytes if master needs to receive
+   }
+}
+
+//-----------------------------------------------------------------------------
+// End Of File
+//-----------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-C51 COMPILER V9.00   MASTER                                                                04/07/2025 15:12:42 PAGE 1   
+C51 COMPILER V9.00   MASTER                                                                04/09/2025 16:02:38 PAGE 1   
 
 
 C51 COMPILER V9.00, COMPILATION OF MODULE MASTER
@@ -7,391 +7,272 @@ COMPILER INVOKED BY: C:\Keil\C51\BIN\c51.exe master.c DB OE BR INCDIR(C:\SiLabs\
 
 line level    source
 
-   1          //------------------------------------------------------------------------------------
-   2          // Master/Transmitter - C8051F120 UART Multiprocessor Communication
-   3          //------------------------------------------------------------------------------------
-   4          // Includes
-   5          //------------------------------------------------------------------------------------
-   6          #include <c8051f120.h> // SFR declarations
-   7          
-   8          //------------------------------------------------------------------------------------
-   9          // Global CONSTANTS
-  10          //------------------------------------------------------------------------------------
-  11          #define SLAVE_ADDRESS 0x05    // Address of the target slave device
-  12          #define DATA_SIZE 64          // Size of data block (0x00-0x3F)
-  13          
-  14          // Display codes for a 7 Segment display
-  15          #define S 0x24
-  16          #define E 0x30
-  17          #define N 0x6A
-  18          #define D 0x42
-  19          #define O 0x72
-  20          #define T 0x78
-  21          
-  22          // State definitions
-  23          #define IDLE      0
-  24          #define FILLING   1
-  25          #define SENDING   2
-  26          #define COMPLETE  3
-  27          
+   1          #include <c8051f120.h>
+   2          //------------------------------------------------------------------------------------
+   3          // Global CONSTANTS
+   4          //------------------------------------------------------------------------------------
+   5          #define ADDRESS 0x05
+   6          #define S 0x24 // Letter codes for seven-segment display
+   7          #define E 0x30
+   8          #define N 0x6A
+   9          #define T 0x70
+  10          #define D 0x42
+  11          #define O 0x62
+  12          
+  13          sbit LED = P1^6;
+  14          
+  15          //------------------------------------------------------------------------------------
+  16          // Function PROTOTYPES
+  17          //------------------------------------------------------------------------------------
+  18          void UART_Init();
+  19          void Interrupts_Init();
+  20          void Timer_Init();
+  21          void Port_IO_Init();
+  22          void Oscillator_Init();
+  23          void LED_Init(void);
+  24          void fillup();
+  25          
+  26          //------------------------------------------------------------------------------------
+  27          // Variable Declaration
   28          //------------------------------------------------------------------------------------
-  29          // Global VARIABLES
-  30          //------------------------------------------------------------------------------------
-  31          unsigned char xdata data_block[DATA_SIZE];  // Data block for transmission
-  32          unsigned char state = IDLE;                 // Current state
-  33          unsigned char data_index = 0;               // Current data index
-  34          bit transmit_ready = 1;                     // Flag indicating transmitter is ready
+  29          int xdata fill[256];
+  30          int data dummy = 0;
+  31          int n = 0;
+  32          short refresher = 0;
+  33          sbit MSEL1 = P1^5; // Multiplexer Select bits
+  34          sbit MSEL0 = P1^4;
   35          
-  36          sbit LED = P1^6;                            // Green LED: '1' = ON; '0' = OFF
-  37          sbit SW1 = P0^2;                            // Switch 1: '0' = pressed, '1' = not pressed
-  38          
-  39          //------------------------------------------------------------------------------------
-  40          // Function PROTOTYPES
-  41          //------------------------------------------------------------------------------------
-  42          void Init_Device(void);
-  43          void Oscillator_Init(void);
-  44          void Port_IO_Init(void);
-  45          void Timer_Init(void);
-  46          void UART_Init(void);
-  47          void Interrupts_Init(void);
-  48          void LED_Init(void);
-  49          void Fill_Data_Block(void);
-  50          void Start_Transmission(void);
-  51          void Display_Status(unsigned char status);
-  52          
-  53          //------------------------------------------------------------------------------------
-  54          // Interrupt Service Routines
-  55          //------------------------------------------------------------------------------------
-C51 COMPILER V9.00   MASTER                                                                04/07/2025 15:12:42 PAGE 2   
+  36          //------------------------------------------------------------------------------------
+  37          // MAIN Routine
+  38          //------------------------------------------------------------------------------------
+  39          void main (void) {
+  40   1          // disable watchdog timer
+  41   1          WDTCN = 0xde;
+  42   1          WDTCN = 0xad;
+  43   1          
+  44   1          Timer_Init();
+  45   1          UART_Init();
+  46   1          Interrupts_Init();
+  47   1          Port_IO_Init();
+  48   1          Oscillator_Init();
+  49   1          LED_Init();
+  50   1          
+  51   1          SFRPAGE = LEGACY_PAGE; // Page to sit in for now
+  52   1          
+  53   1          while (1) { 
+  54   2              // spin forever
+  55   2          }
+C51 COMPILER V9.00   MASTER                                                                04/09/2025 16:02:38 PAGE 2   
 
-  56          
-  57          //------------------------------------------------------------------------------------
-  58          // Timer0_ISR
-  59          //------------------------------------------------------------------------------------
-  60          // Used for timing and state transitions
-  61          //
-  62          void Timer0_ISR(void) interrupt 1
-  63          {
-  64   1          TF0 = 0;                       // Clear Timer0 overflow flag
-  65   1          
-  66   1          if(state == FILLING) {
-  67   2              Fill_Data_Block();         // Continue filling data block
-  68   2              if(data_index >= DATA_SIZE) {
-  69   3                  state = SENDING;       // Move to sending state when data is filled
-  70   3                  data_index = 0;        // Reset index for sending
-  71   3              }
-  72   2          }
-  73   1      }
-  74          
-  75          //------------------------------------------------------------------------------------
-  76          // ES_ISR
-  77          //------------------------------------------------------------------------------------
-  78          // UART Interrupt Service Routine - Handles transmission completion
-  79          //
-  80          void ES_ISR(void) interrupt 4
-  81          {
-  82   1          if(TI0) {
-  83   2              TI0 = 0;                   // Clear transmit interrupt flag
-  84   2              transmit_ready = 1;        // Set transmit ready flag
-  85   2              
-  86   2              if(state == SENDING) {
-  87   3                  if(data_index < DATA_SIZE) {
-  88   4                      Start_Transmission(); // Continue sending next byte
-  89   4                  }
-  90   3                  else {
-  91   4                      state = COMPLETE;  // All bytes have been sent
-  92   4                      Display_Status(state);
-  93   4                  }
-  94   3              }
-  95   2          }
-  96   1      }
-  97          
-  98          //------------------------------------------------------------------------------------
-  99          // EX0_ISR
- 100          //------------------------------------------------------------------------------------
- 101          // External Interrupt 0 Service Routine - Button press to start the process
- 102          //
- 103          void EX0_ISR(void) interrupt 0
- 104          {
- 105   1          if(state == IDLE) {
- 106   2              state = FILLING;           // Start filling data
- 107   2              data_index = 0;            // Initialize data index
- 108   2              LED = 1;                   // Turn on LED to indicate operation
- 109   2              Display_Status(state);
- 110   2          }
- 111   1          else if(state == COMPLETE) {
- 112   2              state = IDLE;              // Reset to idle state
- 113   2              LED = 0;                   // Turn off LED
- 114   2              Display_Status(state);
- 115   2          }
- 116   1      }
- 117          
-C51 COMPILER V9.00   MASTER                                                                04/07/2025 15:12:42 PAGE 3   
+  56   1      }
+  57          
+  58          //-----------------------------------------------------------------------------
+  59          // Initialization Subroutines
+  60          //-----------------------------------------------------------------------------
+  61          void LED_Init(void)
+  62          {
+  63   1          P1MDOUT |= 0x40;
+  64   1          LED = 0;
+  65   1      }
+  66          
+  67          void Timer_Init()
+  68          {
+  69   1          SFRPAGE = TIMER01_PAGE;
+  70   1          TMOD = 0x21;     // Timer 0 in 16-bit mode, Timer 1 in 8-bit auto-reload mode
+  71   1          TH0 = 0xDC;      // Load initial value into Timer 0
+  72   1          TL0 = 0x00;
+  73   1          TH1 = 0xFA;      // Load initial value for 9600 baud rate into TH1
+  74   1          TCON = 0x41;     // TR1 = 1; enable Timer 1 Run Control
+  75   1                            // IT0 = 1; /INT0 is edge triggered, falling-edge
+  76   1      }
+  77          
+  78          void UART_Init()
+  79          {
+  80   1          SFRPAGE = UART0_PAGE;
+  81   1          SCON0 = 0xC0;    // Mode 3 (9-bit UART), TB8 = 0, REN = 0
+  82   1      }
+  83          
+  84          void Interrupts_Init()
+  85          {
+  86   1          IE = 0x91;       // Enable External Interrupt 0, Timer 0, and Serial Interrupts
+  87   1          IP = 0x10;       // PS0 = 1: UART0 Interrupt Priority Control
+  88   1      }
+  89          
+  90          void Oscillator_Init()
+  91          {
+  92   1          // Configure The External Oscillator to use a 22.1184 MHz frequency
+  93   1          int i = 0;
+  94   1          SFRPAGE = CONFIG_PAGE;
+  95   1          
+  96   1          // Step 1. Enable the external oscillator.
+  97   1          OSCXCN = 0x67;
+  98   1          
+  99   1          // Step 2. Wait 1ms for initialization
+ 100   1          for (i = 0; i < 3000; i++);
+ 101   1          
+ 102   1          // Step 3. Poll for XTLVLD => '1'
+ 103   1          while ((OSCXCN & 0x80) == 0);
+ 104   1          
+ 105   1          // Step 4. Switch the system clock to the external oscillator.
+ 106   1          CLKSEL = 0x01;
+ 107   1          OSCICN = 0x00;
+ 108   1      }
+ 109          
+ 110          void Port_IO_Init()
+ 111          {
+ 112   1          // P0.0 - TX0 (UART0), Push-Pull, Digital
+ 113   1          SFRPAGE = CONFIG_PAGE;
+ 114   1          P0MDOUT = 0x01;  // Set P0.0 to Push-Pull output mode for UART TX
+ 115   1          
+ 116   1          // Configure P1 and P2 for display control and data
+ 117   1          P1MDOUT |= 0x30;  // Set P1.4 and P1.5 as outputs for multiplexer control
+C51 COMPILER V9.00   MASTER                                                                04/09/2025 16:02:38 PAGE 3   
 
- 118          //------------------------------------------------------------------------------------
- 119          // MAIN Routine
- 120          //------------------------------------------------------------------------------------
- 121          void main(void)
- 122          {
- 123   1          // Disable watchdog timer
- 124   1          WDTCN = 0xde;
- 125   1          WDTCN = 0xad;
- 126   1          
- 127   1          // Initialize device
- 128   1          Init_Device();
- 129   1          
- 130   1          // Enable global interrupts
- 131   1          EA = 1;
- 132   1          
- 133   1          // Set the appropriate SFR page for operations
- 134   1          SFRPAGE = LEGACY_PAGE;
- 135   1          
- 136   1          // Initial display
- 137   1          Display_Status(state);
- 138   1          
- 139   1          // Main loop
- 140   1          while(1) {
- 141   2              // Wait for interrupts to drive the state machine
- 142   2          }
- 143   1      }
- 144          
- 145          //------------------------------------------------------------------------------------
- 146          // Fill_Data_Block
- 147          //------------------------------------------------------------------------------------
- 148          // Fills the data block with values from 0x00 to 0x3F
- 149          //
- 150          void Fill_Data_Block(void)
- 151          {
- 152   1          if(data_index < DATA_SIZE) {
- 153   2              data_block[data_index] = data_index;
- 154   2              data_index++;
- 155   2          }
- 156   1      }
- 157          
- 158          //------------------------------------------------------------------------------------
- 159          // Start_Transmission
- 160          //------------------------------------------------------------------------------------
- 161          // Initiates transmission of the next byte in the data block
- 162          //
- 163          void Start_Transmission(void)
- 164          {
- 165   1          char SFRPAGE_SAVE = SFRPAGE;   // Save current SFR page
- 166   1          
- 167   1          SFRPAGE = UART0_PAGE;
- 168   1          
- 169   1          if(transmit_ready) {
- 170   2              transmit_ready = 0;        // Clear ready flag
- 171   2              
- 172   2              if(data_index == 0) {      // If first byte (address)
- 173   3                  TB80 = 1;              // Set 9th bit for address
- 174   3                  SBUF0 = SLAVE_ADDRESS; // Send slave address
- 175   3              }
- 176   2              else {                      // Data bytes
- 177   3                  TB80 = 0;              // Clear 9th bit for data
- 178   3                  SBUF0 = data_block[data_index - 1]; // Send data byte
- 179   3              }
-C51 COMPILER V9.00   MASTER                                                                04/07/2025 15:12:42 PAGE 4   
+ 118   1          P2MDOUT = 0xFF;   // Set P2 as output for display data
+ 119   1          
+ 120   1          XBR0 = 0x04;      // Route UART0 TX to P0.0
+ 121   1          XBR1 = 0x04;      // Route external interrupt 0 to P0.2
+ 122   1          XBR2 = 0x40;      // Enable crossbar
+ 123   1      }
+ 124          
+ 125          //-----------------------------------------------------------------------------
+ 126          // Support Subroutines
+ 127          //-----------------------------------------------------------------------------
+ 128          // Function to write 0x00 to 0xFF to RAM
+ 129          void fillup()
+ 130          {
+ 131   1          char SFRPAGE_SAVE = SFRPAGE; // Save Current SFR page
+ 132   1          // int i;
+ 133   1          
+ 134   1          // for(i=0; i<256; i++)
+ 135   1          // {
+ 136   1          //     fill[i] = i;  // Write values from 0x00 to 0xFF to array
+ 137   1              
+ 138   1          // }
+ 139   1      
+ 140   1          
+ 141   1          dummy = 1;  // Set flag to indicate RAM has been filled
+ 142   1          
+ 143   1          SFRPAGE = TIMER01_PAGE;
+ 144   1          TR0 |= 1;   // Turn on Timer 0 run control
+ 145   1          ET0 |= 1;   // Turn on Timer 0 overflow interrupt
+ 146   1          
+ 147   1          SFRPAGE = SFRPAGE_SAVE; // Restore SFR page
+ 148   1      }
+ 149          
+ 150          //-----------------------------------------------------------------------------------
+ 151          // Interrupt Service Routines
+ 152          //-----------------------------------------------------------------------------------
+ 153          void EX0_ISR (void) interrupt 0
+ 154          {
+ 155   1          if (dummy == 0)
+ 156   1          {
+ 157   2              fillup();  // Fill RAM with data when button is pressed first time
+ 158   2          }
+ 159   1          else
+ 160   1          {
+ 161   2              TB80 = 1;        // Set TB8 bit to indicate address byte
+ 162   2              SBUF0 = ADDRESS;  // Send address byte to specify receiver
+ 163   2          }
+ 164   1      }
+ 165          
+ 166          void Timer0_ISR (void) interrupt 1
+ 167          {
+ 168   1          char SFRPAGE_SAVE = SFRPAGE; // Save Current SFR page
+ 169   1          
+ 170   1          // Reload Timer 0 to start counting over
+ 171   1          EA = 0;  // Disable interrupts (critical section)
+ 172   1          SFRPAGE = TIMER01_PAGE;
+ 173   1          TH0 = 0xDC;  // Reload Timer 0 high byte
+ 174   1          TL0 = 0x00;  // Reload Timer 0 low byte
+ 175   1          EA = 1;      // Re-enable interrupts
+ 176   1          
+ 177   1          SFRPAGE = SFRPAGE_SAVE; // Restore SFR page
+ 178   1          
+ 179   1          // Time-division multiplexing for 7-segment display
+C51 COMPILER V9.00   MASTER                                                                04/09/2025 16:02:38 PAGE 4   
 
- 180   2              data_index++;
- 181   2          }
- 182   1          
- 183   1          SFRPAGE = SFRPAGE_SAVE;       // Restore SFR page
- 184   1      }
- 185          
- 186          //------------------------------------------------------------------------------------
- 187          // Display_Status
- 188          //------------------------------------------------------------------------------------
- 189          // Updates display or indicators based on current state
- 190          //
- 191          void Display_Status(unsigned char status)
- 192          {
- 193   1          switch(status) {
- 194   2              case IDLE:
- 195   2                  // Display nothing or standby indicator
- 196   2                  LED = 0;
- 197   2                  break;
- 198   2              case FILLING:
- 199   2                  // Indicate filling operation
- 200   2                  LED = 1;
- 201   2                  break;
- 202   2              case SENDING:
- 203   2                  // Indicate sending operation
- 204   2                  LED = 1;
- 205   2                  break;
- 206   2              case COMPLETE:
- 207   2                  // Indicate completion
- 208   2                  LED = 1;
- 209   2                  break;
- 210   2              default:
- 211   2                  LED = 0;
- 212   2          }
- 213   1      }
- 214          
- 215          //------------------------------------------------------------------------------------
- 216          // Init_Device
- 217          //------------------------------------------------------------------------------------
- 218          // Master initialization function
- 219          //
- 220          void Init_Device(void)
- 221          {
- 222   1          Oscillator_Init();
- 223   1          Port_IO_Init();
- 224   1          Timer_Init();
- 225   1          UART_Init();
- 226   1          Interrupts_Init();
- 227   1          LED_Init();
- 228   1      }
- 229          
- 230          //------------------------------------------------------------------------------------
- 231          // Oscillator_Init
- 232          //------------------------------------------------------------------------------------
- 233          // Configure the external oscillator to use 22.1184 MHz frequency
- 234          //
- 235          void Oscillator_Init(void)
- 236          {
- 237   1          int i = 0;
- 238   1          SFRPAGE = CONFIG_PAGE;
- 239   1          
- 240   1          // Step 1: Enable the external oscillator
- 241   1          OSCXCN = 0x67;
-C51 COMPILER V9.00   MASTER                                                                04/07/2025 15:12:42 PAGE 5   
+ 180   1          if(dummy != 0)
+ 181   1          {
+ 182   2              switch(refresher)
+ 183   2              {
+ 184   3                  case 0:
+ 185   3                      MSEL1 = 0;
+ 186   3                      MSEL0 = 0;
+ 187   3                      if(dummy == 1)
+ 188   3                          P2 = D;  // Display "D" for "DONE"
+ 189   3                      else
+ 190   3                          P2 = S;  // Display "S" for "SENT"
+ 191   3                      refresher++;
+ 192   3                      break;
+ 193   3                      
+ 194   3                  case 1:
+ 195   3                      MSEL1 = 0;
+ 196   3                      MSEL0 = 1;
+ 197   3                      if(dummy == 1)
+ 198   3                          P2 = O;  // Display "O" for "DONE"
+ 199   3                      else
+ 200   3                          P2 = E;  // Display "E" for "SENT"
+ 201   3                      refresher++;
+ 202   3                      break;
+ 203   3                      
+ 204   3                  case 2:
+ 205   3                      MSEL1 = 1;
+ 206   3                      MSEL0 = 0;
+ 207   3                      P2 = N;      // Display "N" for both "DONE" and "SENT"
+ 208   3                      refresher++;
+ 209   3                      break;
+ 210   3                      
+ 211   3                  case 3:
+ 212   3                      MSEL1 = 1;
+ 213   3                      MSEL0 = 1;
+ 214   3                      if(dummy == 1)
+ 215   3                          P2 = E;  // Display "E" for "DONE"
+ 216   3                      else
+ 217   3                          P2 = T;  // Display "T" for "SENT"
+ 218   3                      refresher = 0;
+ 219   3                      break;
+ 220   3                      
+ 221   3                  default: 
+ 222   3                      break;
+ 223   3              }
+ 224   2          }
+ 225   1      }
+ 226          
+ 227          //-----------------------------------------------------------------------------------
+ 228          // UART Transmit Interrupt Service Routine
+ 229          //-----------------------------------------------------------------------------------
+ 230          void ES_ISR (void) interrupt 4
+ 231          {
+ 232   1          TI0 = 0;    // Clear transmit interrupt flag
+ 233   1          
+ 234   1          TB80 = 0;   // Clear TB8 bit (this is data, not an address)
+ 235   1          
+ 236   1          SBUF0 = 0x0F;  // Send dummy byte to clear the interrupt flag
+ 237   1      
+ 238   1          // if(n < 256)
+ 239   1          // {
+ 240   1          //     SBUF0 = fill[n];  // Send data byte
+ 241   1          //     n++;
+C51 COMPILER V9.00   MASTER                                                                04/09/2025 16:02:38 PAGE 5   
 
- 242   1          
- 243   1          // Step 2: Wait 1ms for initialization
- 244   1          for(i = 0; i < 3000; i++);
- 245   1          
- 246   1          // Step 3: Poll for XTLVLD => '1'
- 247   1          while((OSCXCN & 0x80) == 0);
- 248   1          
- 249   1          // Step 4: Switch the system clock to the external oscillator
- 250   1          CLKSEL = 0x01;
- 251   1          OSCICN = 0x00;
- 252   1      }
- 253          
- 254          //------------------------------------------------------------------------------------
- 255          // Port_IO_Init
- 256          //------------------------------------------------------------------------------------
- 257          // Configure I/O ports
- 258          //
- 259          void Port_IO_Init(void)
- 260          {
- 261   1          // P0.0 - TX0 (UART0), Push-Pull, Digital
- 262   1          // P0.1 - RX0 (UART0), Open-Drain, Digital
- 263   1          // P0.2 - INT0 (Tmr0), Open-Drain, Digital
- 264   1          SFRPAGE = CONFIG_PAGE;
- 265   1          
- 266   1          XBR0 = 0x04;      // Enable UART0 (TX/RX on P0.0/P0.1)
- 267   1          XBR1 = 0x04;      // Enable INT0 (P0.2)
- 268   1          XBR2 = 0x40;      // Enable crossbar and weak pull-ups
- 269   1          
- 270   1          P0MDOUT |= 0x01;  // Set P0.0 (TX) to push-pull
- 271   1      }
- 272          
- 273          
- 274          //------------------------------------------------------------------------------------
- 275          // Timer_Init
- 276          //------------------------------------------------------------------------------------
- 277          // Initialize Timer 0 and Timer 1
- 278          //
- 279          void Timer_Init(void)
- 280          {
- 281   1          char SFRPAGE_SAVE = SFRPAGE;
- 282   1          SFRPAGE = TIMER01_PAGE;
- 283   1          
- 284   1          // Configure Timer 0 for state machine timing
- 285   1          TMOD |= 0x01;     // Timer 0 in 16-bit mode
- 286   1          TH0 = 0xDC;       // Initialize Timer 0 high byte
- 287   1          TL0 = 0x00;       // Initialize Timer 0 low byte
- 288   1          TR0 = 1;          // Start Timer 0
- 289   1          
- 290   1          // Configure Timer 1 for UART baud rate generation
- 291   1          TMOD |= 0x20;     // Timer 1 in 8-bit auto-reload mode
- 292   1          
- 293   1          // For 9600 baud with 22.1184MHz crystal:
- 294   1          // TH1 = 256 - ((22118400 / 384) / 9600) = 256 - 6 = 250 = 0xFA
- 295   1          TH1 = 0xFA;
- 296   1          TL1 = 0xFA;
- 297   1          TR1 = 1;          // Start Timer 1
- 298   1          
- 299   1          SFRPAGE = SFRPAGE_SAVE;
- 300   1      }
- 301          
- 302          //------------------------------------------------------------------------------------
- 303          // UART_Init
-C51 COMPILER V9.00   MASTER                                                                04/07/2025 15:12:42 PAGE 6   
+ 242   1          // }
+ 243   1          // else
+ 244   1          // {
+ 245   1          //     dummy = 2;  // All data sent, update display to "SENT"
+ 246   1          //     LED = 1;    // Turn on LED to indicate completion
+ 247   1          // }
+ 248   1      }
 
- 304          //------------------------------------------------------------------------------------
- 305          // Initialize the UART for 9-bit multiprocessor communication
- 306          //
- 307          void UART_Init(void)
- 308          {
- 309   1          char SFRPAGE_SAVE = SFRPAGE;
- 310   1          SFRPAGE = UART0_PAGE;
- 311   1          
- 312   1          SCON0 = 0xF0;     // Mode 3, 9-bit UART, enable reception
- 313   1          /*
- 314   1           * SM00 = 1 - Serial Mode bit 0
- 315   1           * SM10 = 1 - Serial Mode bit 1, Mode 3 (9-bit UART, variable baud rate)
- 316   1           * SM20 = 1 - Multiprocessor Communications enabled
- 317   1           * REN0 = 1 - UART0 reception enabled
- 318   1           * TB80 = 0 - 9th bit to transmit (set before each transmission)
- 319   1           * RB80 = 0 - 9th bit received
- 320   1           * TI0  = 0 - Transmit interrupt flag (set when byte is transmitted)
- 321   1           * RI0  = 0 - Receive interrupt flag (set when byte is received)
- 322   1           */
- 323   1          
- 324   1          SFRPAGE = SFRPAGE_SAVE;
- 325   1      }
- 326          
- 327          //------------------------------------------------------------------------------------
- 328          // Interrupts_Init
- 329          //------------------------------------------------------------------------------------
- 330          // Initialize and enable interrupts
- 331          //
- 332          void Interrupts_Init(void)
- 333          {
- 334   1          IE = 0x93;        // Enable EA, ES0, ET0, EX0
- 335   1          /*
- 336   1           * EA  = 1 - Global interrupt enable
- 337   1           * ES0 = 1 - Enable UART0 interrupt
- 338   1           * ET0 = 1 - Enable Timer 0 interrupt
- 339   1           * EX0 = 1 - Enable External 0 interrupt
- 340   1           */
- 341   1          
- 342   1          IP = 0x10;        // High priority for UART interrupt
- 343   1          /*
- 344   1           * PS0 = 1 - UART0 interrupt high priority
- 345   1           */
- 346   1          
- 347   1          TCON = 0x05;      // Edge-triggered INT0, start Timer 0
- 348   1          /*
- 349   1           * IT0 = 1 - INT0 edge-triggered
- 350   1           * TR0 = 1 - Timer 0 run control bit
- 351   1           */
- 352   1      }
- 353          
- 354          //------------------------------------------------------------------------------------
- 355          // LED_Init
- 356          //------------------------------------------------------------------------------------
- 357          // Initialize LED output
- 358          //
- 359          void LED_Init(void)
- 360          {
- 361   1          P1MDOUT |= 0x40;  // Configure P1.6 as push-pull output for LED
- 362   1          LED = 0;          // Turn off LED initially
- 363   1      }
-
-
-C51 COMPILER V9.00   MASTER                                                                04/07/2025 15:12:42 PAGE 7   
 
 MODULE INFORMATION:   STATIC OVERLAYABLE
-   CODE SIZE        =    483    ----
+   CODE SIZE        =    340    ----
    CONSTANT SIZE    =   ----    ----
-   XDATA SIZE       =     64    ----
+   XDATA SIZE       =    512    ----
    PDATA SIZE       =   ----    ----
-   DATA SIZE        =      2    ----
+   DATA SIZE        =      6    ----
    IDATA SIZE       =   ----    ----
-   BIT SIZE         =      1    ----
+   BIT SIZE         =   ----    ----
 END OF MODULE INFORMATION.
 
 

@@ -1,0 +1,378 @@
+//-----------------------------------------------------------------------------
+// C8051F120_Master_UART_SingleButton.c
+//-----------------------------------------------------------------------------
+// Copyright 2025
+// Engineering Department, Trinity College
+//
+// Program Description:
+// --------------------
+// This program configures the C8051F120DK as a master transmitter for
+// multiprocessor UART communication at 9600 baud using a SINGLE button press
+// on P3.2 (/INT0) to initiate the process.
+//
+// Target:         C8051F120
+// Tool chain:     Keil C51 Compiler
+// Command Line:   None
+//
+// Release 0.2 / April 2025
+//    - Combined RAM fill and send sequence into single button press (INT0).
+//    - Removed INT1 logic.
+//    - Added BUSY/SENT display logic.
+//    - Corrected syntax errors from image.
+//
+// Hardware Connections:
+// ---------------------
+// P0.0 -> UART0 TXD
+// P0.1 -> UART0 RXD (Input, optional connection for master)
+// P3.2 -> External Interrupt 0 Input (Button Press to Start Fill & Send)
+// P1.6 -> Green LED Output
+// P2   -> 7-Segment Data Output (Active Low assumed)
+// P1.4 -> 7-Segment Digit Select 0 (MSELO)
+// P1.5 -> 7-Segment Digit Select 1 (MSEL1)
+//
+// Assumes a 4-digit common anode 7-segment display connected to P2 (segments a-g, dp)
+// and P1.4/P1.5 for digit selection (00=Digit3, 01=Digit2, 10=Digit1, 11=Digit0).
+// Active low segment drive assumed for P2.
+// External pull-up needed for P3.2 if using a simple button to ground.
+// UART connection requires appropriate level shifting (e.g., MAX232) if connecting to RS232.
+//
+//-----------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------
+// Includes
+//-----------------------------------------------------------------------------
+#include <c8051f120.h>          // SFR declarations
+
+//-----------------------------------------------------------------------------
+// Global CONSTANTS
+//-----------------------------------------------------------------------------
+#define SYSCLK          22118400 // System clock frequency in Hz (EXTOSC)
+#define BAUDRATE        9600     // UART Baud rate
+#define RAM_SIZE        256      // Size of the RAM block to fill/transmit
+#define SLAVE_ADDRESS   0x01     // Example Slave Address (change as needed)
+
+// 7-Segment Display Digit Select (Example, adjust if needed)
+sbit MSEL0 = P1^4;           // Multiplexer Select Bit 0
+sbit MSEL1 = P1^5;           // Multiplexer Select Bit 1
+
+// LED
+sbit LED = P1^6;              // Green LED on P1.6
+
+// 7-Segment Display Codes (Active Low for Common Anode)
+#define SEG_B    0x60 // Display "B"
+#define SEG_U    0xC3 // Display "U"
+#define SEG_S    0x24 // Display "S"
+#define SEG_Y    0x48 // Display "Y" (close approximation)
+#define SEG_E    0x30 // Display "E"
+#define SEG_N    0x6A // Display "N"
+#define SEG_T    0x70 // Display "T"
+#define SEG_OFF  0xFF // Turn off digit
+#define SEG_DASH 0xBF // Display "-"
+
+//-----------------------------------------------------------------------------
+// Global VARIABLES
+//-----------------------------------------------------------------------------
+unsigned char xdata ram_block[RAM_SIZE]; // RAM block for data
+unsigned char transmit_index = 0;        // Index for transmitting data
+volatile bit sending_flag = 0;           // Flag set during transmission sequence
+volatile bit sent_flag = 0;              // Flag set after transmission complete
+
+// Display variables
+unsigned char disp_char[4] = {SEG_OFF, SEG_OFF, SEG_OFF, SEG_OFF}; // Display buffer
+unsigned char disp_refresh_count = 0;    // For TDM display refresh
+
+//-----------------------------------------------------------------------------
+// Function PROTOTYPES
+//-----------------------------------------------------------------------------
+void OSCILLATOR_Init (void);
+void PORT_IO_Init (void);
+void UART0_Init (void);
+void TIMER_Init (void);
+void INTERRUPT_Init (void);
+void Disable_Watchdog (void);
+void Set_Display (char d3, char d2, char d1, char d0); // d3 is leftmost digit
+
+// Interrupt Service Routines
+void ExtInt0_ISR (void) interrupt 0;   // External Interrupt 0 (Fill & Start Send)
+void Timer0_ISR (void) interrupt 1;    // Timer0 Overflow (Display Refresh)
+// void ExtInt1_ISR (void) interrupt 2; // Removed - Not needed
+void UART0_ISR (void) interrupt 4; // UART0 Interrupt (Transmit/Receive)
+
+//-----------------------------------------------------------------------------
+// MAIN Routine
+//-----------------------------------------------------------------------------
+void main (void) {
+   Disable_Watchdog();              // Disable watchdog timer
+
+   SFRPAGE = CONFIG_PAGE;          // Switch to configuration page
+   OSCILLATOR_Init();              // Initialize oscillator
+   PORT_IO_Init();                 // Initialize crossbar and GPIO
+   TIMER_Init();                   // Initialize Timer 0 (Display) & Timer 1 (Baud)
+   UART0_Init();                   // Initialize UART0
+   INTERRUPT_Init();               // Initialize and enable interrupts
+
+   SFRPAGE = LEGACY_PAGE;          // Switch back to legacy page
+
+   Set_Display(SEG_DASH, SEG_DASH, SEG_DASH, SEG_DASH); // Initial display (e.g., "----")
+   LED = 0;                        // Turn LED off initially
+
+   EA = 1;                         // Enable global interrupts
+
+   while (1) {                     // Infinite loop (interrupt-driven)
+       // Low power mode could be entered here if desired
+   }
+}
+
+//-----------------------------------------------------------------------------
+// Initialization Subroutines
+//-----------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------
+// Disable_Watchdog
+//-----------------------------------------------------------------------------
+void Disable_Watchdog (void)
+{
+   WDTCN = 0xDE;                   // Write magic code
+   WDTCN = 0xAD;                   // Write magic code
+}
+
+//-----------------------------------------------------------------------------
+// OSCILLATOR_Init
+//-----------------------------------------------------------------------------
+void OSCILLATOR_Init (void)
+{
+   int i;
+   SFRPAGE = CONFIG_PAGE;
+   OSCXCN    = 0x67;               // Enable external crystal oscillator (22.1184MHz)
+   for (i=0; i < 3000; i++);       // Wait >1ms for stabilization
+   while (!(OSCXCN & 0x80));       // Wait for crystal valid (XTLVLD)
+   CLKSEL    = 0x01;               // Select external oscillator
+   OSCICN    = 0x00;               // Disable internal oscillator
+}
+
+//-----------------------------------------------------------------------------
+// PORT_IO_Init
+//-----------------------------------------------------------------------------
+void PORT_IO_Init (void)
+{
+   SFRPAGE   = CONFIG_PAGE;
+   P0MDOUT  |= 0x01;               // Set TX0 (P0.0) to push-pull
+   P1MDOUT  |= 0x70;               // Set P1.6 (LED), P1.5(MSEL1), P1.4(MSEL0) to push-pull
+   P2MDOUT   = 0xFF;               // Set P2 (7-Segment) to push-pull
+   P3MDOUT   = 0x00;               // Set P3 (INT0/P3.2 input) to open-drain
+
+   XBR0      = 0x04;               // Enable UART0 on Crossbar (TX0=P0.0, RX0=P0.1)
+   XBR1      = 0x04;               // Enable /INT0 input
+                                    // Note: By default with UART0 enabled, /INT0 maps to P0.2.
+                                    // If the button is physically connected to P3.2,
+                                    // ensure P0.2, P0.3...P3.1 are not used by higher
+                                    // priority enabled peripherals OR explicitly configure
+                                    // the crossbar to skip pins to route /INT0 to P3.2.
+                                    // For simplicity here, assume button connected to correct routed pin (e.g. P0.2)
+                                    // OR that P3.2 is the *actual* pin for /INT0 on this board/setup.
+                                    // If P3.2 is desired, more XBR config may be needed.
+   XBR2      = 0x40;               // Enable Crossbar and weak pull-ups
+
+   P3        |= 0x04;              // Set P3.2 high (required for Open Drain input pin)
+
+}
+
+//-----------------------------------------------------------------------------
+// UART0_Init
+//-----------------------------------------------------------------------------
+void UART0_Init (void)
+{
+   SFRPAGE   = UART0_PAGE;
+   SCON0     = 0xD0;               // Mode 3: 9-bit UART, variable baud rate
+                                    // REN0=1: Enable receiver
+                                    // TB80=0: 9th bit clear initially
+                                    // RI0=0, TI0=0: Clear flags
+
+   SFRPAGE   = TIMER01_PAGE;
+   TMOD     |= 0x20;               // Timer1 in 8-bit auto-reload mode
+   CKCON    &= ~0x18;              // Timer1 uses SYSCLK/12 (T1M=0, SCA=00)
+                                    // Timer0 uses SYSCLK/12 (T0M=0, SCA=00)
+   TH1       = 0xFA;               // Set Timer1 reload value for 9600 baud (22.1184MHz / 12)
+   TL1       = TH1;
+   TR1       = 1;                  // Start Timer1
+
+   SFRPAGE = UART0_PAGE;
+   TI0 = 1;                        // Indicate TX is ready initially
+}
+
+//-----------------------------------------------------------------------------
+// TIMER_Init
+//-----------------------------------------------------------------------------
+void TIMER_Init(void)
+{
+    SFRPAGE = TIMER01_PAGE;
+    TMOD   &= ~0x0F;               // Clear Timer0 mode bits
+    TMOD   |= 0x01;               // Timer0 in 16-bit mode
+    // CKCON already set Timer0 to SYSCLK/12 in UART0_Init
+
+    // Interrupt every ~5ms for display refresh
+    // SYSCLK/12 = 1843200 Hz
+    // Counts for 5ms = 9216 counts
+    // Reload value = 65536 - 9216 = 56320 = 0xDC00
+    TH0     = 0xDC;
+    TL0     = 0x00;
+    ET0     = 1;                   // Enable Timer 0 interrupt
+    TR0     = 1;                   // Start Timer 0
+}
+
+//-----------------------------------------------------------------------------
+// INTERRUPT_Init
+//-----------------------------------------------------------------------------
+void INTERRUPT_Init (void)
+{
+   SFRPAGE = LEGACY_PAGE;
+   IT0 = 1;                       // /INT0 is edge triggered (TCON.0)
+   EX0 = 1;                       // Enable External Interrupt 0 (IE.0)
+   // EX1 = 0;                    // Disable External Interrupt 1 (IE.2) - Removed
+   ES0 = 1;                       // Enable UART0 Interrupt (IE.4)
+
+   // Correctly access IP register using bitwise operations
+   IP |= 0x10;                    // Set UART0 interrupt high priority (IP.4 = PS0 = 1)
+                                  // Set External Interrupt 0 low priority (IP.0 = PX0 = 0, default)
+   // ET0 enabled in TIMER_Init
+   // EA will be enabled in main
+}
+
+//-----------------------------------------------------------------------------
+// Set_Display
+//-----------------------------------------------------------------------------
+void Set_Display (char d3, char d2, char d1, char d0)
+{
+    // Characters displayed left-to-right: d3, d2, d1, d0
+    disp_char[3] = d3; // MS Digit
+    disp_char[2] = d2;
+    disp_char[1] = d1;
+    disp_char[0] = d0; // LS Digit
+}
+
+//-----------------------------------------------------------------------------
+// Interrupt Service Routines
+//-----------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------
+// ExtInt0_ISR
+//-----------------------------------------------------------------------------
+// External Interrupt 0 ISR: Fills RAM, displays "BUSY", initiates send.
+// Triggered by P3.2 falling edge.
+//-----------------------------------------------------------------------------
+void ExtInt0_ISR (void) interrupt 0 /* using 1 - removed, using default register bank */
+{
+   unsigned int i;
+
+   if (!sending_flag) {             // Only start if not currently sending
+      sending_flag = 1;             // Set sending flag
+      sent_flag = 0;                // Clear sent flag
+
+      Set_Display(SEG_B, SEG_U, SEG_S, SEG_Y); // Display "BUSY"
+
+      for(i=0; i < RAM_SIZE; i++) { // Fill RAM block
+          ram_block[i] = i;
+      }
+
+      transmit_index = 0;           // Reset transmit index
+
+      SFRPAGE = UART0_PAGE;
+      TB80 = 1;                     // Set 9th bit for address transmission
+      SBUF0 = SLAVE_ADDRESS;        // Send slave address (triggers first TI0 interrupt)
+      LED = 0;                      // Turn LED off (optional busy indicator)
+   }
+   // IE0 is automatically cleared by hardware since IT0=1
+}
+
+//-----------------------------------------------------------------------------
+// Timer0_ISR
+//-----------------------------------------------------------------------------
+void Timer0_ISR (void) interrupt 1 /* using 2 - removed, using default register bank */
+{
+   EA = 0;                          // Disable interrupts during refresh
+   TR0 = 0;                         // Stop Timer 0
+   TH0 = 0xDC;                      // Reload Timer 0 - High Byte
+   TL0 = 0x00;                      // Reload Timer 0 - Low Byte
+
+   // Turn off all digits - Drive P2 high (segments off), P1 high (transistors off)
+   P2 = 0xFF;
+   P1 |= 0x30; // Set P1.4 and P1.5 high
+
+   // Output next digit
+   // Corrected digit select logic for common anode (0=ON, 1=OFF)
+   switch (disp_refresh_count) {
+      case 0:                       // Digit 0 (Rightmost)
+         P1 = (P1 & ~0x30) | 0x00;  // MSEL1=0, MSEL0=0 (Select Digit 0)
+         P2 = disp_char[0];
+         break;
+      case 1:                       // Digit 1
+         P1 = (P1 & ~0x30) | 0x10;  // MSEL1=0, MSEL0=1 (Select Digit 1)
+         P2 = disp_char[1];
+         break;
+      case 2:                       // Digit 2
+         P1 = (P1 & ~0x30) | 0x20;  // MSEL1=1, MSEL0=0 (Select Digit 2)
+         P2 = disp_char[2];
+         break;
+      case 3:                       // Digit 3 (Leftmost)
+         P1 = (P1 & ~0x30) | 0x30;  // MSEL1=1, MSEL0=1 (Select Digit 3)
+         P2 = disp_char[3];
+         break;
+   }
+
+   disp_refresh_count++;
+   if (disp_refresh_count > 3) {
+       disp_refresh_count = 0;
+   }
+
+   TF0 = 0;                         // Clear Timer 0 overflow flag
+   TR0 = 1;                         // Start Timer 0 again
+   EA = 1;                          // Re-enable interrupts
+}
+
+//-----------------------------------------------------------------------------
+// ExtInt1_ISR - REMOVED
+//-----------------------------------------------------------------------------
+// void ExtInt1_ISR (void) interrupt 2 using 1 {...}
+
+//-----------------------------------------------------------------------------
+// UART0_ISR
+//-----------------------------------------------------------------------------
+void UART0_ISR (void) interrupt 4 /* using 3 - removed, using default register bank */
+{
+   SFRPAGE = UART0_PAGE;
+   if (TI0 == 1) {                  // Check if transmit interrupt flag is set
+      TI0 = 0;                      // Clear transmit interrupt flag
+
+      if (sending_flag) {
+          if (TB80 == 1) {          // Just finished sending address byte
+             TB80 = 0;              // Clear 9th bit for data transmission
+             if (RAM_SIZE > 0) {
+                 SBUF0 = ram_block[transmit_index++]; // Send first data byte
+             } else {               // No data to send
+                 sending_flag = 0;
+                 sent_flag = 1;
+                 Set_Display(SEG_S, SEG_E, SEG_N, SEG_T); // Display "SENT"
+                 LED = 1;           // Turn LED on (optional done indicator)
+             }
+          } else {                   // Just finished sending a data byte
+             if (transmit_index < RAM_SIZE) {
+                 SBUF0 = ram_block[transmit_index++]; // Send next data byte
+             } else {                // Last data byte sent
+                 sending_flag = 0;   // Finished sending
+                 sent_flag = 1;
+                 Set_Display(SEG_S, SEG_E, SEG_N, SEG_T); // Display "SENT"
+                 LED = 1;            // Turn LED on (optional done indicator)
+             }
+          }
+      }
+   }
+
+   if (RI0 == 1) {                  // Check receive flag (optional for master)
+       RI0 = 0;                     // Clear receive flag
+       // Master doesn't expect to receive in this setup, but clear flag anyway
+   }
+}
+
+//-----------------------------------------------------------------------------
+// End Of File
+//-----------------------------------------------------------------------------
