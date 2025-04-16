@@ -26,7 +26,7 @@ void fillup();
 //------------------------------------------------------------------------------------
 // Variable Declaration
 //------------------------------------------------------------------------------------
-int xdata fill[256];
+int xdata fill[64];
 int data dummy = 0;
 int n = 0;
 short refresher = 0;
@@ -129,13 +129,13 @@ void Port_IO_Init()
 void fillup()
 {
     char SFRPAGE_SAVE = SFRPAGE; // Save Current SFR page
-    // int i;
+    int i;
     
-    // for(i=0; i<256; i++)
-    // {
-    //     fill[i] = i;  // Write values from 0x00 to 0xFF to array
+    for(i=0; i<64; i++)
+    {
+        fill[i] = i;  // Write values from 0x00 to 0xFF to array
         
-    // }
+    }
 
     
     dummy = 1;  // Set flag to indicate RAM has been filled
@@ -233,16 +233,16 @@ void ES_ISR (void) interrupt 4
     
     TB80 = 0;   // Clear TB8 bit (this is data, not an address)
     
-    SBUF0 = 0x0F;  // Send dummy byte to clear the interrupt flag
+    // SBUF0 = 0x0F;  // Send dummy byte to clear the interrupt flag
 
-    // if(n < 256)
-    // {
-    //     SBUF0 = fill[n];  // Send data byte
-    //     n++;
-    // }
-    // else
-    // {
-    //     dummy = 2;  // All data sent, update display to "SENT"
-    //     LED = 1;    // Turn on LED to indicate completion
-    // }
+    if(n < 64)
+    {
+        SBUF0 = fill[n];  // Send data byte
+        n++;
+    }
+    else
+    {
+        dummy = 2;  // All data sent, update display to "SENT"
+        LED = 1;    // Turn on LED to indicate completion
+    }
 }

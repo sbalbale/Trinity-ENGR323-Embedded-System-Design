@@ -1,1 +1,0 @@
-"C:\Users\seanb\Documents\Trinity-ENGR323-Embedded-System-Design\lab05\master\master.obj"  TO "C:\Users\seanb\Documents\Trinity-ENGR323-Embedded-System-Design\lab05\master\transmitter" RS(256) PL(68) PW(78) 
