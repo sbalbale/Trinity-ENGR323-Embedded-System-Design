@@ -237,7 +237,8 @@ void ES_ISR (void) interrupt 4
 
     if(n < 64)
     {
-        SBUF0 = fill[n];  // Send data byte
+        // SBUF0 = fill[n];  // Send data byte
+        SBUF0 = 24; // Send the value 24
         n++;
     }
     else
@@ -245,4 +246,5 @@ void ES_ISR (void) interrupt 4
         dummy = 2;  // All data sent, update display to "SENT"
         LED = 1;    // Turn on LED to indicate completion
     }
+
 }

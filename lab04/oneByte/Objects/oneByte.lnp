@@ -1,0 +1,3 @@
+".\Objects\recieveOneByte.obj" 
+TO ".\Objects\oneByte" 
+PRINT(".\Listings\oneByte.m51")

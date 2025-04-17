@@ -1,0 +1,186 @@
+A51 MACRO ASSEMBLER  RECIEVEONEBYTE                                                       04/16/2025 16:27:41 PAGE     1
+
+
+MACRO ASSEMBLER A51 V8.2.7.0
+OBJECT MODULE PLACED IN .\Objects\recieveOneByte.obj
+ASSEMBLER INVOKED BY: C:\Keil_v5\C51\BIN\A51.EXE recieveOneByte.asm SET(SMALL) DEBUG PRINT(.\Listings\recieveOneByte.lst
+                      ) OBJECT(.\Objects\recieveOneByte.obj) EP
+
+LOC  OBJ            LINE     SOURCE
+
+0000                   1     ORG     0000h           
+0000 2100              2                 AJMP    MAIN           
+                       3     
+0023                   4                 ORG     0023h          ; Serial port interrupt vector
+0023 2140              5                 AJMP    SERIAL_ISR           
+                       6     
+000B                   7                 ORG     000Bh          ; Timer 0 vector
+000B 212E              8                 AJMP    Timer0_ISR
+                       9     
+0100                  10                 ORG     0100h          
+0100 758130           11     MAIN:       MOV     SP, #30h       
+0103 758921           12                 MOV     TMOD, #21h     ; Timer 0: mode 1 (16-bit), Timer 1: mode 2 (8-bit auto-
+                             reload)
+                      13     
+                      14                 ; Initialize display registers (Bank 0)
+0106 C2D3             15                 CLR     RS0            ; Select Bank 0
+0108 C2D4             16                 CLR     RS1
+010A 7800             17                 MOV     R0, #00h      ; Ones digit
+010C 7900             18                 MOV     R1, #00h      ; Tens digit
+010E 7A00             19                 MOV     R2, #00h      ; Hundreds digit
+0110 7B00             20                 MOV     R3, #00h      ; Thousands digit
+0112 7C00             21                 MOV     R4, #00h      ; Display position
+0114 7D00             22                 MOV     R5, #00h      ; Counter for 5ms intervals
+                      23                 
+                      24                 
+                      25                 ; Timer 0 setup for 5ms display refresh
+0116 758CEC           26                 MOV     TH0, #0ECh     
+0119 758A78           27                 MOV     TL0, #078h
+011C D2A9             28                 SETB    ET0           ; Enable Timer 0 interrupt
+                      29                 
+                      30                 ; UART setup
+011E 759850           31                 MOV     SCON, #50h    ; Serial mode 1 (8-bit UART), REN=1 (enable receiver)
+0121 758DFD           32                 MOV     TH1, #0FDh    ; 9600 baud rate with 11.0592 MHz crystal
+0124 D28E             33                 SETB    TR1           ; Start Timer 1
+0126 D2AC             34                 SETB    ES            ; Enable serial interrupt
+                      35                 
+0128 D2AF             36                 SETB    EA            ; Enable global interrupts
+012A D28C             37                 SETB    TR0           ; Start Timer 0
+                      38     
+012C 80FE             39     MainLoop:   SJMP    MainLoop      ; Everything handled by interrupts
+                      40     
+                      41     ; Timer 0 ISR - Display refresh
+012E C0E0             42     Timer0_ISR: PUSH    ACC            
+0130 C0D0             43                 PUSH    PSW
+                      44     
+                      45                 ; Reload timer for next 5ms
+0132 C28C             46                 CLR     TR0            
+0134 758CEC           47                 MOV     TH0, #0ECh     
+0137 758A78           48                 MOV     TL0, #078h     
+013A C28D             49                 CLR     TF0            
+013C D28C             50                 SETB    TR0     
+                      51     
+013E 8020             52                 SJMP    Display_Update
+                      53     
+                      54     
+                      55     ; Serial Interrupt (UART receive)
+0140 C0E0             56     SERIAL_ISR: PUSH    ACC
+A51 MACRO ASSEMBLER  RECIEVEONEBYTE                                                       04/16/2025 16:27:41 PAGE     2
+
+0142 C0D0             57                 PUSH    PSW
+                      58                 
+0144 309814           59                 JNB     RI, Exit_Serial    ; If not receive interrupt, exit
+0147 C298             60                 CLR     RI                  ; Clear receive interrupt flag
+                      61                 
+0149 E599             62                 MOV     A, SBUF            ; Get received byte
+                      63                 
+                      64                 ; Convert to BCD digits for display
+014B 75F064           65                 MOV     B, #100
+014E 84               66                 DIV     AB                  ; A = value/100, B = value%100
+014F FA               67                 MOV     R2, A               ; Hundreds digit
+                      68                 
+0150 E5F0             69                 MOV     A, B
+0152 75F00A           70                 MOV     B, #10
+0155 84               71                 DIV     AB                  ; A = (value%100)/10, B = value%10
+0156 F9               72                 MOV     R1, A               ; Tens digit
+0157 A8F0             73                 MOV     R0, B               ; Ones digit
+                      74                 
+                      75                 ; If number > 255, set thousands digit to 0
+                      76                 ; If we're receiving 8-bit values, this will always be 0
+0159 7B00             77                 MOV     R3, #00h
+                      78                 
+                      79                 ; ; Display "1" when UART data is received
+                      80                 ; MOV     R0, #1             ; Ones digit = 1
+                      81                 ; MOV     R1, #0             ; Tens digit = 0
+                      82                 ; MOV     R2, #0             ; Hundreds digit = 0
+                      83                 ; MOV     R3, #0             ; Thousands digit = 0
+                      84     
+                      85     
+015B                  86     Exit_Serial:
+015B D0D0             87                 POP     PSW
+015D D0E0             88                 POP     ACC
+015F 32               89                 RETI
+0160                  90     Display_Update:
+                      91                 ; Select digit to display using position code in high nibble
+0160 EC               92                 MOV     A, R4          
+0161 B40005           93                 CJNE    A, #00h, Try_Pos1
+0164 E8               94                 MOV     A, R0          ; First digit (thousands)
+0165 4400             95                 ORL     A, #00h        ; Position 0 code (00h)
+0167 8013             96                 SJMP    Output_Digit
+                      97     
+0169 B40105           98     Try_Pos1:   CJNE    A, #01h, Try_Pos2
+016C E9               99                 MOV     A, R1          ; Second digit (hundreds)
+016D 4410            100                 ORL     A, #10h        ; Position 1 code (10h)
+016F 800B            101                 SJMP    Output_Digit
+                     102     
+0171 B40205          103     Try_Pos2:   CJNE    A, #02h, Try_Pos3
+0174 EA              104                 MOV     A, R2          ; Third digit (tens)
+0175 4420            105                 ORL     A, #20h        ; Position 2 code (20h)
+0177 8003            106                 SJMP    Output_Digit
+                     107     
+0179 EB              108     Try_Pos3:   MOV     A, R3          ; Fourth digit (ones)
+017A 4430            109                 ORL     A, #30h        ; Position 3 code (30h)
+                     110     
+017C                 111     Output_Digit:
+017C 543F            112                 ANL     A, #3Fh        ; Ensure upper 2 bits are clear
+017E F590            113                 MOV     P1, A          ; Output digit value with position code
+                     114     
+                     115                 ; Update display position
+0180 EC              116                 MOV     A, R4
+0181 04              117                 INC     A              
+0182 B40401          118                 CJNE    A, #04h, Save_Pos
+0185 E4              119                 CLR     A             
+0186 FC              120     Save_Pos:   MOV     R4, A         
+                     121     
+0187 D0D0            122                 POP     PSW            
+A51 MACRO ASSEMBLER  RECIEVEONEBYTE                                                       04/16/2025 16:27:41 PAGE     3
+
+0189 D0E0            123                 POP     ACC
+018B 32              124                 RETI
+                     125     
+                     126                 END
+A51 MACRO ASSEMBLER  RECIEVEONEBYTE                                                       04/16/2025 16:27:41 PAGE     4
+
+SYMBOL TABLE LISTING
+------ ----- -------
+
+
+N A M E             T Y P E  V A L U E   ATTRIBUTES
+
+ACC. . . . . . . .  D ADDR   00E0H   A   
+B. . . . . . . . .  D ADDR   00F0H   A   
+DISPLAY_UPDATE . .  C ADDR   0160H   A   
+EA . . . . . . . .  B ADDR   00A8H.7 A   
+ES . . . . . . . .  B ADDR   00A8H.4 A   
+ET0. . . . . . . .  B ADDR   00A8H.1 A   
+EXIT_SERIAL. . . .  C ADDR   015BH   A   
+MAIN . . . . . . .  C ADDR   0100H   A   
+MAINLOOP . . . . .  C ADDR   012CH   A   
+OUTPUT_DIGIT . . .  C ADDR   017CH   A   
+P1 . . . . . . . .  D ADDR   0090H   A   
+PSW. . . . . . . .  D ADDR   00D0H   A   
+RI . . . . . . . .  B ADDR   0098H.0 A   
+RS0. . . . . . . .  B ADDR   00D0H.3 A   
+RS1. . . . . . . .  B ADDR   00D0H.4 A   
+SAVE_POS . . . . .  C ADDR   0186H   A   
+SBUF . . . . . . .  D ADDR   0099H   A   
+SCON . . . . . . .  D ADDR   0098H   A   
+SERIAL_ISR . . . .  C ADDR   0140H   A   
+SP . . . . . . . .  D ADDR   0081H   A   
+TF0. . . . . . . .  B ADDR   0088H.5 A   
+TH0. . . . . . . .  D ADDR   008CH   A   
+TH1. . . . . . . .  D ADDR   008DH   A   
+TIMER0_ISR . . . .  C ADDR   012EH   A   
+TL0. . . . . . . .  D ADDR   008AH   A   
+TMOD . . . . . . .  D ADDR   0089H   A   
+TR0. . . . . . . .  B ADDR   0088H.4 A   
+TR1. . . . . . . .  B ADDR   0088H.6 A   
+TRY_POS1 . . . . .  C ADDR   0169H   A   
+TRY_POS2 . . . . .  C ADDR   0171H   A   
+TRY_POS3 . . . . .  C ADDR   0179H   A   
+
+
+REGISTER BANK(S) USED: 0 
+
+
+ASSEMBLY COMPLETE.  0 WARNING(S), 0 ERROR(S)

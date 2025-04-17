@@ -1,0 +1,149 @@
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                    04/16/2025  16:27:41  PAGE 1
+
+
+BL51 BANKED LINKER/LOCATER V6.22.4.0, INVOKED BY:
+C:\KEIL_V5\C51\BIN\BL51.EXE .\Objects\recieveOneByte.obj TO .\Objects\oneByte PRINT (.\Listings\oneByte.m51)
+
+
+INPUT MODULES INCLUDED:
+  .\Objects\recieveOneByte.obj (RECIEVEONEBYTE)
+
+
+LINK MAP OF MODULE:  .\Objects\oneByte (RECIEVEONEBYTE)
+
+
+            TYPE    BASE      LENGTH    RELOCATION   SEGMENT NAME
+            -----------------------------------------------------
+
+            * * * * * * *   D A T A   M E M O R Y   * * * * * * *
+            REG     0000H     0008H     ABSOLUTE     "REG BANK 0"
+
+            * * * * * * *   C O D E   M E M O R Y   * * * * * * *
+            CODE    0000H     018CH     ABSOLUTE     
+
+
+
+SYMBOL TABLE OF MODULE:  .\Objects\oneByte (RECIEVEONEBYTE)
+
+  VALUE           TYPE          NAME
+  ----------------------------------
+
+  -------         MODULE        RECIEVEONEBYTE
+  D:00E0H         SYMBOL        ACC
+  D:00F0H         SYMBOL        B
+  C:0160H         SYMBOL        DISPLAY_UPDATE
+  B:00A8H.7       SYMBOL        EA
+  B:00A8H.4       SYMBOL        ES
+  B:00A8H.1       SYMBOL        ET0
+  C:015BH         SYMBOL        EXIT_SERIAL
+  C:0100H         SYMBOL        MAIN
+  C:012CH         SYMBOL        MAINLOOP
+  C:017CH         SYMBOL        OUTPUT_DIGIT
+  D:0090H         SYMBOL        P1
+  D:00D0H         SYMBOL        PSW
+  B:0098H.0       SYMBOL        RI
+  B:00D0H.3       SYMBOL        RS0
+  B:00D0H.4       SYMBOL        RS1
+  C:0186H         SYMBOL        SAVE_POS
+  D:0099H         SYMBOL        SBUF
+  D:0098H         SYMBOL        SCON
+  C:0140H         SYMBOL        SERIAL_ISR
+  D:0081H         SYMBOL        SP
+  B:0088H.5       SYMBOL        TF0
+  D:008CH         SYMBOL        TH0
+  D:008DH         SYMBOL        TH1
+  C:012EH         SYMBOL        TIMER0_ISR
+  D:008AH         SYMBOL        TL0
+  D:0089H         SYMBOL        TMOD
+  B:0088H.4       SYMBOL        TR0
+  B:0088H.6       SYMBOL        TR1
+  C:0169H         SYMBOL        TRY_POS1
+  C:0171H         SYMBOL        TRY_POS2
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  04/16/2025  16:27:41  PAGE 2
+
+
+  C:0179H         SYMBOL        TRY_POS3
+  C:0000H         LINE#         2
+  C:0023H         LINE#         5
+  C:000BH         LINE#         8
+  C:0100H         LINE#         11
+  C:0103H         LINE#         12
+  C:0106H         LINE#         15
+  C:0108H         LINE#         16
+  C:010AH         LINE#         17
+  C:010CH         LINE#         18
+  C:010EH         LINE#         19
+  C:0110H         LINE#         20
+  C:0112H         LINE#         21
+  C:0114H         LINE#         22
+  C:0116H         LINE#         26
+  C:0119H         LINE#         27
+  C:011CH         LINE#         28
+  C:011EH         LINE#         31
+  C:0121H         LINE#         32
+  C:0124H         LINE#         33
+  C:0126H         LINE#         34
+  C:0128H         LINE#         36
+  C:012AH         LINE#         37
+  C:012CH         LINE#         39
+  C:012EH         LINE#         42
+  C:0130H         LINE#         43
+  C:0132H         LINE#         46
+  C:0134H         LINE#         47
+  C:0137H         LINE#         48
+  C:013AH         LINE#         49
+  C:013CH         LINE#         50
+  C:013EH         LINE#         52
+  C:0140H         LINE#         56
+  C:0142H         LINE#         57
+  C:0144H         LINE#         59
+  C:0147H         LINE#         60
+  C:0149H         LINE#         62
+  C:014BH         LINE#         65
+  C:014EH         LINE#         66
+  C:014FH         LINE#         67
+  C:0150H         LINE#         69
+  C:0152H         LINE#         70
+  C:0155H         LINE#         71
+  C:0156H         LINE#         72
+  C:0157H         LINE#         73
+  C:0159H         LINE#         77
+  C:015BH         LINE#         87
+  C:015DH         LINE#         88
+  C:015FH         LINE#         89
+  C:0160H         LINE#         92
+  C:0161H         LINE#         93
+  C:0164H         LINE#         94
+  C:0165H         LINE#         95
+  C:0167H         LINE#         96
+  C:0169H         LINE#         98
+  C:016CH         LINE#         99
+  C:016DH         LINE#         100
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  04/16/2025  16:27:41  PAGE 3
+
+
+  C:016FH         LINE#         101
+  C:0171H         LINE#         103
+  C:0174H         LINE#         104
+  C:0175H         LINE#         105
+  C:0177H         LINE#         106
+  C:0179H         LINE#         108
+  C:017AH         LINE#         109
+  C:017CH         LINE#         112
+  C:017EH         LINE#         113
+  C:0180H         LINE#         116
+  C:0181H         LINE#         117
+  C:0182H         LINE#         118
+  C:0185H         LINE#         119
+  C:0186H         LINE#         120
+  C:0187H         LINE#         122
+  C:0189H         LINE#         123
+  C:018BH         LINE#         124
+  -------         ENDMOD        RECIEVEONEBYTE
+
+******************************************************************************
+* RESTRICTED VERSION WITH 0800H BYTE CODE SIZE LIMIT; USED: 0092H BYTE ( 7%) *
+******************************************************************************
+
+Program Size: data=8.0 xdata=0 code=396
+LINK/LOCATE RUN COMPLETE.  0 WARNING(S),  0 ERROR(S)

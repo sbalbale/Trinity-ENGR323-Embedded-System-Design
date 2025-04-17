@@ -1,338 +1,330 @@
 ;-----------------------------------------------------------------------------
-; UART Slave Receiver
-; This program configures the 8051 as a UART slave receiver that can:
-; 1. Determine if it is the targeted-receiver
-; 2. Receive data and store in RAM locations 30h-6Fh
-; 3. Display "DONE" when all bytes are received
-; 4. Display received data sequentially with 1-second intervals 
-; 5. Display "END" when completed
+; Slave.asm (Stopwatch Display Logic Version)
+;-----------------------------------------------------------------------------
+; Description: Receives 64 bytes of data via UART after being addressed.
+;              Stores data in RAM locations 30h-6Fh.
+;              Displays "dOnE" (hex D,0,E,E) when reception complete.
+;              Sequentially displays received data (00-FF as hex) at 1-sec intervals.
+;              Displays " End" (hex Blank,E,E,D) after showing all data.
+; Target:      Generic 8051 with Stopwatch-style P1 display hardware
+; Tool chain:  Generic 8051 Assembler
 ;-----------------------------------------------------------------------------
 
 ;-----------------------------------------------------------------------------
-; Constants
+; Equates - Constants and Memory Locations
 ;-----------------------------------------------------------------------------
-SLAVE_ADDR      EQU     05h     ; Slave address (must match master)
-DATA_SIZE       EQU     40h     ; 64 bytes of data (0x00-0x3F)
+MY_ADDR       EQU   05h       ; Slave's own address (must match master)
+DATA_COUNT    EQU   64        ; Number of data bytes to receive (0x40)
+RAM_START     EQU   30h       ; Starting RAM address for received data
+RAM_END       EQU   RAM_START + DATA_COUNT - 1 ; Should be 6Fh
 
-; 7-segment display codes (active low)
-ZERO            EQU     01h     ; 0
-ONE             EQU     4Fh     ; 1
-TWO             EQU     12h     ; 2
-THREE           EQU     06h     ; 3
-FOUR            EQU     4Ch     ; 4
-FIVE            EQU     24h     ; 5
-SIX             EQU     20h     ; 6
-SEVEN           EQU     0Fh     ; 7
-EIGHT           EQU     00h     ; 8
-NINE            EQU     04h     ; 9
-LETTER_D        EQU     42h     ; d
-LETTER_O        EQU     11h     ; o
-LETTER_N        EQU     6Ah     ; n
-LETTER_E        EQU     30h     ; E
+; Display Character Codes (Hex values for decoder on P1.0-P1.3)
+CHAR_0        EQU   00h
+CHAR_1        EQU   01h
+CHAR_2        EQU   02h
+CHAR_3        EQU   03h
+CHAR_4        EQU   04h
+CHAR_5        EQU   05h
+CHAR_6        EQU   06h
+CHAR_7        EQU   07h
+CHAR_8        EQU   08h
+CHAR_9        EQU   09h
+CHAR_A        EQU   0Ah
+CHAR_B        EQU   0Bh
+CHAR_C        EQU   0Ch
+CHAR_D        EQU   0Dh
+CHAR_E        EQU   0Eh
+CHAR_F        EQU   0Fh
+CHAR_BLANK    EQU   10h       ; Code > 0Fh to signify blank (decoder dependent)
+CHAR_DASH     EQU   0Eh       ; Using 'E' as a substitute for dash/initial state
 
-; Display messages
-; RAM locations for display buffer
-DISP_BUF        EQU     70h     ; Start of display buffer (4 bytes)
+; State Variables (using internal RAM locations > 20h)
+STATE         EQU   20h       ; 0=Wait Addr, 1=Receiving, 2=Done, 3=Displaying Data, 4=End Display
+RX_COUNT_VAR  EQU   21h       ; Counter for received bytes
+RX_PTR        EQU   22h       ; Pointer (R0 used directly in ISR)
+DISPLAY_POS   EQU   23h       ; 7-seg multiplex position (0-3)
+DISPLAY_CHAR1 EQU   24h       ; Character CODE for Digit 1 (P1.0-3)
+DISPLAY_CHAR2 EQU   25h       ; Character CODE for Digit 2 (P1.0-3)
+DISPLAY_CHAR3 EQU   26h       ; Character CODE for Digit 3 (P1.0-3)
+DISPLAY_CHAR4 EQU   27h       ; Character CODE for Digit 4 (P1.0-3)
+DISPLAY_PTR   EQU   28h       ; Pointer for reading data back from RAM for display
+DELAY_COUNT   EQU   29h       ; Counter for 1-second delay (counts Timer0 overflows)
+TEMP_A        EQU   2Ah       ; Temporary storage for ACC in ISRs
+TEMP_PSW      EQU   2Bh       ; Temporary storage for PSW in ISRs
+TEMP_B        EQU   2Ch       ; Temporary storage for B in ISRs
 
 ;-----------------------------------------------------------------------------
 ; Interrupt Vector Table
 ;-----------------------------------------------------------------------------
-            ORG     0000h
-            SJMP    MAIN            ; Reset vector
+            ORG   0000h       ; Reset Vector
+            AJMP  MAIN
 
-            ORG     0023h           ; Serial interrupt vector
-            LJMP    SERIAL_ISR
+            ORG   000Bh       ; Timer 0 Overflow Vector
+            AJMP  Timer0_ISR
 
-            ORG     000Bh           ; Timer 0 interrupt vector
-            LJMP    TIMER0_ISR
-
-            ORG     0013h           ; External interrupt 1 vector
-            LJMP    EXT1_ISR
+            ORG   0023h       ; Serial Port (UART) Vector
+            AJMP  UART_ISR
 
 ;-----------------------------------------------------------------------------
 ; Main Program
 ;-----------------------------------------------------------------------------
-            ORG     0030h
-MAIN:       MOV     SP, #60h        ; Initialize stack pointer
+            ORG   0100h       ; Start of code memory
+MAIN:
+            MOV   SP, #60h    ; Initialize Stack Pointer (adjust if needed)
 
-            ; Initialize variables
-            MOV     R7, #00h        ; Display position counter
-            MOV     20h, #00h       ; Mode (0=Waiting, 1=Receiving, 2=Done, 3=Display, 4=End)
-            MOV     21h, #00h       ; Data index for display
-            MOV     22h, #00h       ; Timer counter for 1-second intervals
-            
-            ; Setup serial port (Mode 3 - 9-bit UART)
-            MOV     SCON, #0F0h     ; Mode 3, SM2=1 (enable multiprocessor), REN=1
-            
-            ; Set baud rate using Timer 1 (assuming 11.0592 MHz crystal)
-            MOV     TMOD, #21h      ; Timer 0: 16-bit mode, Timer 1: 8-bit auto-reload
-            MOV     TH1, #0FDh      ; 9600 baud rate with 11.0592 MHz crystal
-            SETB    TR1             ; Start Timer 1
-            
-            ; Setup Timer 0 for display refresh (5ms intervals)
-            MOV     TH0, #0ECh      ; Load high byte for 5ms delay
-            MOV     TL0, #78h       ; Load low byte for 5ms delay
-            
-            ; Setup display buffer with "----" initially
-            MOV     DISP_BUF+0, #40h    ; "-"
-            MOV     DISP_BUF+1, #40h    ; "-"
-            MOV     DISP_BUF+2, #40h    ; "-"
-            MOV     DISP_BUF+3, #40h    ; "-"
-            
-            ; Enable interrupts
-            SETB    ES              ; Enable serial interrupt
-            SETB    ET0             ; Enable Timer 0 interrupt
-            SETB    EX1             ; Enable External interrupt 1
-            SETB    EA              ; Enable global interrupts
-            
-            ; Configure P1 for output (7-segment display)
-            MOV     P1, #0FFh       ; Turn off all segments initially
+            ; Initialize State Variables
+            MOV   STATE, #00h   ; Start in Waiting for Address state
+            MOV   RX_COUNT_VAR, #00h
+            MOV   DISPLAY_POS, #00h
+            MOV   DELAY_COUNT, #00h
+            MOV   DISPLAY_PTR, #RAM_START ; Initialize display pointer
 
-MAIN_LOOP:  SJMP    MAIN_LOOP       ; Wait for interrupts
+            ; Initialize Display Characters to "----" (using CHAR_DASH code)
+            MOV   DISPLAY_CHAR1, #CHAR_DASH
+            MOV   DISPLAY_CHAR2, #CHAR_DASH
+            MOV   DISPLAY_CHAR3, #CHAR_DASH
+            MOV   DISPLAY_CHAR4, #CHAR_DASH
+
+            ; Call Initialization Routines
+            ACALL Port_Init
+            ACALL Timer_Init
+            ACALL UART_Init
+            ACALL Interrupt_Init
+
+MainLoop:
+            SJMP  MainLoop      ; Everything is handled by interrupts
 
 ;-----------------------------------------------------------------------------
-; Serial Interrupt Service Routine
+; Initialization Subroutines
 ;-----------------------------------------------------------------------------
-SERIAL_ISR: PUSH    ACC
-            PUSH    PSW
-            
-            CLR     RI              ; Clear receive interrupt flag
-            
-            ; Check if SM2 is set (waiting for address)
-            JNB     SM2, RECEIVE_DATA
-            
-            ; Address mode - check if this slave is being addressed
-            MOV     A, SBUF
-            CJNE    A, #SLAVE_ADDR, NOT_OUR_ADDR
-            
-            ; This slave is being addressed
-            CLR     SM2             ; Clear SM2 to receive data bytes
-            MOV     R0, #30h        ; Initialize data pointer to RAM location 30h
-            MOV     20h, #01h       ; Set mode to receiving
-            SJMP    SERIAL_EXIT
-            
-NOT_OUR_ADDR:
-            ; Not our address, stay in address mode
-            SJMP    SERIAL_EXIT
-            
-RECEIVE_DATA:
-            ; We are receiving a data byte
-            MOV     A, SBUF         ; Get received data
-            MOV     @R0, A          ; Store in RAM
-            INC     R0              ; Increment pointer
-            
-            ; Check if we've received all data
-            MOV     A, R0
-            CJNE    A, #70h, SERIAL_EXIT  ; If not at end of buffer, continue
-            
-            ; All data received
-            SETB    SM2             ; Reset SM2 to wait for next address byte
-            MOV     20h, #02h       ; Set mode to Done
-            
-            ; Setup "DONE" message in display buffer
-            MOV     DISP_BUF+0, #LETTER_D
-            MOV     DISP_BUF+1, #LETTER_O
-            MOV     DISP_BUF+2, #LETTER_N
-            MOV     DISP_BUF+3, #LETTER_E
-            
-            ; Start Timer 0 for display
-            SETB    TR0
-
-SERIAL_EXIT:
-            POP     PSW
-            POP     ACC
-            RETI
-
-;-----------------------------------------------------------------------------
-; Timer 0 Interrupt Service Routine
-;-----------------------------------------------------------------------------
-TIMER0_ISR: PUSH    ACC
-            PUSH    PSW
-            
-            ; Reload timer for next 5ms interval
-            MOV     TH0, #0ECh
-            MOV     TL0, #78h
-            
-            ; Update display refresh counter
-            INC     22h
-            MOV     A, 22h
-            
-            ; Check if 1 second has passed (200 * 5ms = 1 second)
-            CJNE    A, #200, REFRESH_DISPLAY
-            MOV     22h, #0         ; Reset counter
-            
-            ; Check current mode
-            MOV     A, 20h
-            CJNE    A, #02h, CHECK_DISPLAY_MODE  ; If not in Done mode, check display mode
-            MOV     20h, #03h       ; Switch to Display mode
-            MOV     21h, #00h       ; Reset display index
-            SJMP    UPDATE_DATA_DISPLAY
-            
-CHECK_DISPLAY_MODE:
-            CJNE    A, #03h, CHECK_END_MODE      ; If not in Display mode, check End mode
-            
-            ; In Display mode - update display with next data byte
-UPDATE_DATA_DISPLAY:
-            MOV     A, 21h          ; Get current data index
-            ADD     A, #30h         ; Add base address of data
-            MOV     R0, A           ; R0 points to current data byte
-            MOV     A, @R0          ; Get data byte
-            
-            ; Convert to BCD and display
-            MOV     B, #100
-            DIV     AB              ; A = hundreds, B = remainder
-            MOV     DISP_BUF+1, A   ; Store hundreds digit
-            
-            MOV     A, B
-            MOV     B, #10
-            DIV     AB              ; A = tens, B = ones
-            MOV     DISP_BUF+2, A   ; Store tens digit
-            MOV     DISP_BUF+3, B   ; Store ones digit
-            
-            MOV     DISP_BUF+0, #40h ; Show "-" in first position
-            
-            ; Convert BCD to 7-segment codes
-            MOV     R0, #DISP_BUF+1
-            LCALL   CONVERT_BCD_TO_7SEG
-            MOV     R0, #DISP_BUF+2
-            LCALL   CONVERT_BCD_TO_7SEG
-            MOV     R0, #DISP_BUF+3
-            LCALL   CONVERT_BCD_TO_7SEG
-            
-            ; Increment display index
-            INC     21h
-            MOV     A, 21h
-            CJNE    A, #DATA_SIZE, REFRESH_DISPLAY ; If not at end of data, continue
-            
-            ; All data displayed, switch to End mode
-            MOV     20h, #04h       ; Set mode to End
-            
-            ; Setup "END " message
-            MOV     DISP_BUF+0, #LETTER_E
-            MOV     DISP_BUF+1, #LETTER_N
-            MOV     DISP_BUF+2, #LETTER_D
-            MOV     DISP_BUF+3, #40h ; "-"
-            SJMP    REFRESH_DISPLAY
-            
-CHECK_END_MODE:
-            ; Nothing special to do in End mode
-            
-REFRESH_DISPLAY:
-            ; Update the display based on current position
-            MOV     A, R7
-            
-            ; Select digit position and get segment pattern
-            CJNE    A, #00h, CHECK_POS1
-            MOV     A, #00h         ; Position code for digit 0
-            MOV     B, DISP_BUF+0   ; Get segment pattern
-            SJMP    OUTPUT_DISPLAY
-            
-CHECK_POS1: CJNE    A, #01h, CHECK_POS2
-            MOV     A, #10h         ; Position code for digit 1
-            MOV     B, DISP_BUF+1   ; Get segment pattern
-            SJMP    OUTPUT_DISPLAY
-            
-CHECK_POS2: CJNE    A, #02h, CHECK_POS3
-            MOV     A, #20h         ; Position code for digit 2
-            MOV     B, DISP_BUF+2   ; Get segment pattern
-            SJMP    OUTPUT_DISPLAY
-            
-CHECK_POS3: ; Must be position 3
-            MOV     A, #30h         ; Position code for digit 3
-            MOV     B, DISP_BUF+3   ; Get segment pattern
-            
-OUTPUT_DISPLAY:
-            ORL     A, B            ; Combine position and segment pattern
-            MOV     P1, A           ; Output to display
-            
-            ; Update position for next time
-            INC     R7
-            MOV     A, R7
-            CJNE    A, #04h, TIMER0_EXIT
-            MOV     R7, #00h
-            
-TIMER0_EXIT:
-            POP     PSW
-            POP     ACC
-            RETI
-
-;-----------------------------------------------------------------------------
-; External Interrupt 1 Service Routine
-;-----------------------------------------------------------------------------
-EXT1_ISR:   PUSH    ACC
-            PUSH    PSW
-            
-            ; Use external interrupt to start display of received data
-            MOV     A, 20h
-            CJNE    A, #02h, EXT1_EXIT  ; If not in Done mode, ignore
-            
-            MOV     20h, #03h       ; Switch to Display mode
-            MOV     21h, #00h       ; Reset display index
-            MOV     22h, #0         ; Reset timer counter
-            
-EXT1_EXIT:  POP     PSW
-            POP     ACC
-            RETI
-
-;-----------------------------------------------------------------------------
-; Convert BCD to 7-segment code
-; Input: R0 points to BCD value
-; Output: 7-segment code replaces BCD value at [R0]
-;-----------------------------------------------------------------------------
-CONVERT_BCD_TO_7SEG:
-            PUSH    ACC
-            PUSH    PSW
-            
-            MOV     A, @R0          ; Get BCD value
-            
-            ; Convert to 7-segment code using lookup table
-            CJNE    A, #00h, TRY_ONE
-            MOV     @R0, #ZERO
-            SJMP    CONVERT_EXIT
-            
-TRY_ONE:    CJNE    A, #01h, TRY_TWO
-            MOV     @R0, #ONE
-            SJMP    CONVERT_EXIT
-            
-TRY_TWO:    CJNE    A, #02h, TRY_THREE
-            MOV     @R0, #TWO
-            SJMP    CONVERT_EXIT
-            
-TRY_THREE:  CJNE    A, #03h, TRY_FOUR
-            MOV     @R0, #THREE
-            SJMP    CONVERT_EXIT
-            
-TRY_FOUR:   CJNE    A, #04h, TRY_FIVE
-            MOV     @R0, #FOUR
-            SJMP    CONVERT_EXIT
-            
-TRY_FIVE:   CJNE    A, #05h, TRY_SIX
-            MOV     @R0, #FIVE
-            SJMP    CONVERT_EXIT
-            
-TRY_SIX:    CJNE    A, #06h, TRY_SEVEN
-            MOV     @R0, #SIX
-            SJMP    CONVERT_EXIT
-            
-TRY_SEVEN:  CJNE    A, #07h, TRY_EIGHT
-            MOV     @R0, #SEVEN
-            SJMP    CONVERT_EXIT
-            
-TRY_EIGHT:  CJNE    A, #08h, TRY_NINE
-            MOV     @R0, #EIGHT
-            SJMP    CONVERT_EXIT
-            
-TRY_NINE:   CJNE    A, #09h, CONVERT_DEFAULT
-            MOV     @R0, #NINE
-            SJMP    CONVERT_EXIT
-            
-CONVERT_DEFAULT:
-            ; If not a valid digit, display blank
-            MOV     @R0, #0FFh
-            
-CONVERT_EXIT:
-            POP     PSW
-            POP     ACC
+Port_Init:
+            ; Assume P1 is output for display (combined data/select)
+            MOV   P1, #0FFh     ; Initialize P1 (direction set by HW/default, often input)
+            ; If using C8051Fxxx style MCU, P1MDOUT might be needed
+            ; MOV   P1MDOUT, #0FFh ; Set P1 as push-pull if needed
             RET
 
+Timer_Init:
+            ; Timer 1: Baud Rate Generator (Mode 2, 8-bit Auto-Reload)
+            MOV   TMOD, #21h    ; Timer 1: Mode 2, Timer 0: Mode 1 (16-bit)
+            MOV   TH1, #0FAh    ; 9600 Baud at 22.1184 MHz (match master C code)
+            SETB  TR1           ; Start Timer 1
+
+            ; Timer 0: Display Refresh & 1-Second Delay (Mode 1, 16-bit)
+            ; Aim for ~5ms refresh interval => DC00h for 22.1184 MHz
+            MOV   TH0, #0DCh    ; Load Timer 0 initial value High Byte
+            MOV   TL0, #00h     ; Load Timer 0 initial value Low Byte
+            SETB  TR0           ; Start Timer 0
+            RET
+
+UART_Init:
+            MOV   SCON, #0D0h   ; Mode 3 (9-bit UART), REN=1 (Enable Receive), SM2=1 initially
+            RET
+
+Interrupt_Init:
+            MOV   IE, #92h      ; EA=1, ES=1, ET0=1
+            RET
+
+;-----------------------------------------------------------------------------
+; Interrupt Service Routines
+;-----------------------------------------------------------------------------
+
+; Serial Port Interrupt Service Routine (Identical to previous version)
+UART_ISR:
+            PUSH  ACC           ; Save registers used
+            PUSH  PSW
+            PUSH  DPL
+            PUSH  DPH
+            PUSH  B
+
+            MOV   TEMP_A, A     ; Use temporary RAM storage
+            MOV   TEMP_PSW, PSW
+            MOV   TEMP_B, B
+
+            JB    RI, UART_Receive ; Jump if Receive Interrupt occurred
+            JNB   TI, UART_ISR_End ; Ignore Transmit Interrupt
+
+            CLR   TI
+
+UART_Receive:
+            MOV   A, SCON       ; Check SM2 bit status
+            JB    ACC.5, Addr_Check ; If SM2 is 1, expect address
+
+Data_Receive:                  ; SM2 is 0, expect data
+            MOV   A, SBUF        ; Read received data byte
+            MOV   R0, RX_PTR     ; Load RAM pointer into R0
+            MOV   @R0, A         ; Store data byte in RAM
+            INC   R0             ; Increment RAM pointer
+            MOV   RX_PTR, R0     ; Save updated pointer
+            DJNZ  RX_COUNT_VAR, Data_Receive_End ; Decrement byte counter
+
+            ; --- All Bytes Received ---
+            MOV   STATE, #02h    ; Set state to Done
+            SETB  SM2            ; Wait for next address
+            MOV   DISPLAY_CHAR1, #CHAR_D ; Prepare "dOnE" display
+            MOV   DISPLAY_CHAR2, #CHAR_0 ; Use 0 for O
+            MOV   DISPLAY_CHAR3, #CHAR_E ; Use E for n
+            MOV   DISPLAY_CHAR4, #CHAR_E
+            MOV   DELAY_COUNT, #200 ; Start 1-sec delay counter (~200 * 5ms)
+            SJMP  Data_Receive_End
+
+Addr_Check:                    ; SM2 is 1, expect address
+            MOV   A, SBUF        ; Read potential address
+            CJNE  A, #MY_ADDR, Addr_Mismatch
+
+            ; --- Address Matched ---
+            CLR   SM2            ; Enable data reception
+            MOV   STATE, #01h    ; State = Receiving Data
+            MOV   RX_COUNT_VAR, #DATA_COUNT ; Init byte counter
+            MOV   RX_PTR, #RAM_START ; Init RAM pointer
+            SJMP  Data_Receive_End
+
+Addr_Mismatch:                 ; Address did not match, ignore
+            ; SM2 remains 1
+
+Data_Receive_End:
+            CLR   RI             ; Clear Receive Interrupt flag
+
+UART_ISR_End:
+            MOV   A, TEMP_A     ; Restore registers
+            MOV   PSW, TEMP_PSW
+            MOV   B, TEMP_B
+
+            POP   B
+            POP   DPH
+            POP   DPL
+            POP   PSW
+            POP   ACC
+            RETI
+
+; Timer 0 Interrupt Service Routine (Stopwatch-style Display Logic)
+Timer0_ISR:
+            PUSH  ACC           ; Save registers
+            PUSH  PSW
+            PUSH  B
+
+            MOV   TEMP_A, A     ; Use temporary RAM storage
+            MOV   TEMP_PSW, PSW
+            MOV   TEMP_B, B
+
+            ; Reload Timer 0 for next ~5ms interval
+            CLR   TR0
+            MOV   TH0, #0DCh
+            MOV   TL0, #00h
+            SETB  TR0
+
+            ; --- Handle States and Select Display Characters ---
+            MOV   A, STATE
+            CJNE  A, #02h, T0_Check_State_3 ; Check if in DONE state (2)
+            ; State 2 ("dOnE"): Already set display chars in UART_ISR
+            SJMP  T0_Update_Display
+
+T0_Check_State_3:
+            CJNE  A, #03h, T0_Check_State_4 ; Check if in DISPLAYING DATA state (3)
+            ; State 3 (Displaying Data): Decrement delay, update display if needed
+            DJNZ  DELAY_COUNT, T0_Update_Display ; If delay counter not zero, just refresh display
+            ; --- 1 Second Delay Expired ---
+            MOV   DELAY_COUNT, #200 ; Reload delay counter (~200 * 5ms = 1 sec)
+            ACALL Display_Next_Hex_Byte ; Update display chars for next byte
+            SJMP  T0_Update_Display
+
+T0_Check_State_4:
+            CJNE  A, #04h, T0_Update_Display ; Check if in END state (4)
+            ; State 4 (" End"): Set display chars
+            MOV   DISPLAY_CHAR1, #CHAR_BLANK ; Blank
+            MOV   DISPLAY_CHAR2, #CHAR_E     ; E
+            MOV   DISPLAY_CHAR3, #CHAR_E     ; n (using E)
+            MOV   DISPLAY_CHAR4, #CHAR_D     ; d
+            SJMP  T0_Update_Display
+
+            ; States 0 (Wait Addr) & 1 (Receiving): Use "----" (CHAR_DASH) set at init
+
+            ; --- Multiplex Display using Stopwatch Logic ---
+T0_Update_Display:
+            MOV   A, DISPLAY_POS ; Get current position (0-3)
+            CJNE  A, #00h, T0_Pos1
+            MOV   A, DISPLAY_CHAR1 ; Get Digit 1 char code
+            ORL   A, #00h        ; OR with position code 0
+            SJMP  T0_Output_Digit
+
+T0_Pos1:    CJNE  A, #01h, T0_Pos2
+            MOV   A, DISPLAY_CHAR2 ; Get Digit 2 char code
+            ORL   A, #10h        ; OR with position code 1 (0001 0000)
+            SJMP  T0_Output_Digit
+
+T0_Pos2:    CJNE  A, #02h, T0_Pos3
+            MOV   A, DISPLAY_CHAR3 ; Get Digit 3 char code
+            ORL   A, #20h        ; OR with position code 2 (0010 0000)
+            SJMP  T0_Output_Digit
+
+T0_Pos3:    ; Position must be 3
+            MOV   A, DISPLAY_CHAR4 ; Get Digit 4 char code
+            ORL   A, #30h        ; OR with position code 3 (0011 0000)
+            ; SJMP T0_Output_Digit ; Fall through
+
+T0_Output_Digit:
+            MOV   P1, A           ; Output combined value to Port 1
+
+            ; Update display position for next interrupt
+            MOV   A, DISPLAY_POS
+            INC   A
+            ANL   A, #03h        ; Modulo 4 wrap-around
+            MOV   DISPLAY_POS, A
+
+            ; --- Restore registers ---
+T0_ISR_End:
+            MOV   A, TEMP_A     ; Restore registers from RAM
+            MOV   PSW, TEMP_PSW
+            MOV   B, TEMP_B
+
+            POP   B
+            POP   PSW
+            POP   ACC
+            RETI
+
+;-----------------------------------------------------------------------------
+; Helper Subroutines
+;-----------------------------------------------------------------------------
+
+; Updates DISPLAY_CHAR3/4 with hex nibbles of the next byte from RAM.
+; Sets DISPLAY_CHAR1/2 to Blank. Called every 1 second when STATE is 3.
+Display_Next_Hex_Byte:
+            PUSH  ACC
+            PUSH  B
+            PUSH  DPL
+            PUSH  DPH
+
+            MOV   R0, DISPLAY_PTR ; Get current RAM address to display
+            MOV   A, R0
+            CJNE  A, #(RAM_END + 1), DNHB_Continue ; Check if past last address
+            ; --- Finished Displaying All Data ---
+            MOV   STATE, #04h     ; Transition to END state
+            SJMP  DNHB_End
+
+DNHB_Continue:
+            MOV   A, @R0          ; Get data byte from RAM
+            INC   DISPLAY_PTR     ; Increment pointer for next time
+
+            ; Display hex byte on digits 3 & 4, blank digits 1 & 2
+            MOV   DISPLAY_CHAR1, #CHAR_BLANK
+            MOV   DISPLAY_CHAR2, #CHAR_BLANK
+
+            MOV   B, A          ; Save original byte in B
+            SWAP  A             ; Get high nibble
+            ANL   A, #0Fh       ; Isolate high nibble (0-F)
+            MOV   DISPLAY_CHAR3, A ; Store hex code in Digit 3 variable
+
+            MOV   A, B          ; Restore original byte
+            ANL   A, #0Fh       ; Isolate low nibble (0-F)
+            MOV   DISPLAY_CHAR4, A ; Store hex code in Digit 4 variable
+
+DNHB_End:
+            POP   DPH
+            POP   DPL
+            POP   B
+            POP   ACC
+            RET
+
+;-----------------------------------------------------------------------------
             END
+;-----------------------------------------------------------------------------

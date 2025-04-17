@@ -1,4 +1,4 @@
-BL51 BANKED LINKER/LOCATER V6.22              04/16/2025  13:31:46  PAGE 1
+BL51 BANKED LINKER/LOCATER V6.22              04/16/2025  15:43:49  PAGE 1
 
 
 BL51 BANKED LINKER/LOCATER V6.22, INVOKED BY:
@@ -31,7 +31,7 @@ LINK MAP OF MODULE:  C:\Users\seanb\Documents\Trinity-ENGR323-Embedded-System-
             IDATA   000EH     0001H     UNIT         ?STACK
 
             * * * * * * *  X D A T A   M E M O R Y  * * * * * * *
-            XDATA   0000H     0200H     UNIT         ?XD?MASTER
+            XDATA   0000H     0080H     UNIT         ?XD?MASTER
 
             * * * * * * *   C O D E   M E M O R Y   * * * * * * *
             CODE    0000H     0003H     ABSOLUTE     
@@ -43,19 +43,19 @@ LINK MAP OF MODULE:  C:\Users\seanb\Documents\Trinity-ENGR323-Embedded-System-
                     0026H     07DAH                  *** GAP ***
             CODE    0800H     00A1H     UNIT         ?PR?TIMER0_ISR?MASTER
             CODE    08A1H     008CH     UNIT         ?C_C51STARTUP
-            CODE    092DH     0020H     UNIT         ?PR?OSCILLATOR_INIT?MASTE
+            CODE    092DH     0038H     UNIT         ?PR?EX0_ISR?MASTER
+            CODE    0965H     0036H     UNIT         ?PR?FILLUP?MASTER
+            CODE    099BH     002FH     UNIT         ?PR?ES_ISR?MASTER
+            CODE    09CAH     0020H     UNIT         ?PR?OSCILLATOR_INIT?MASTE
 >> R
-            CODE    094DH     0020H     UNIT         ?PR?EX0_ISR?MASTER
-            CODE    096DH     001DH     UNIT         ?PR?MAIN?MASTER
-            CODE    098AH     0016H     UNIT         ?PR?PORT_IO_INIT?MASTER
-            CODE    09A0H     0012H     UNIT         ?PR?TIMER_INIT?MASTER
-            CODE    09B2H     0012H     UNIT         ?PR?FILLUP?MASTER
-            CODE    09C4H     000DH     UNIT         ?C_INITSEG
-            CODE    09D1H     0008H     UNIT         ?PR?ES_ISR?MASTER
-            CODE    09D9H     0007H     UNIT         ?PR?UART_INIT?MASTER
-            CODE    09E0H     0007H     UNIT         ?PR?INTERRUPTS_INIT?MASTE
+            CODE    09EAH     001DH     UNIT         ?PR?MAIN?MASTER
+            CODE    0A07H     0016H     UNIT         ?PR?PORT_IO_INIT?MASTER
+            CODE    0A1DH     0012H     UNIT         ?PR?TIMER_INIT?MASTER
+            CODE    0A2FH     000DH     UNIT         ?C_INITSEG
+            CODE    0A3CH     0007H     UNIT         ?PR?UART_INIT?MASTER
+            CODE    0A43H     0007H     UNIT         ?PR?INTERRUPTS_INIT?MASTE
 >> R
-            CODE    09E7H     0006H     UNIT         ?PR?LED_INIT?MASTER
+            CODE    0A4AH     0006H     UNIT         ?PR?LED_INIT?MASTER
 
 
 
@@ -67,7 +67,7 @@ SEGMENT
   +--> CALLED SEGMENT
 ---------------------
 ?PR?EX0_ISR?MASTER
-BL51 BANKED LINKER/LOCATER V6.22            04/16/2025  13:31:46  PAGE 2
+BL51 BANKED LINKER/LOCATER V6.22            04/16/2025  15:43:49  PAGE 2
 
 
   +--> ?PR?FILLUP?MASTER
@@ -109,37 +109,37 @@ SYMBOL TABLE OF MODULE:  C:\Users\seanb\Documents\Trinity-ENGR323-Embedded-Sys
   D:00A5H         PUBLIC        P1MDOUT
   D:00A8H         PUBLIC        IE
   D:00A6H         PUBLIC        P2MDOUT
-  C:09B2H         PUBLIC        fillup
-  C:098AH         PUBLIC        Port_IO_Init
+  C:0965H         PUBLIC        fillup
+  C:0A07H         PUBLIC        Port_IO_Init
   D:00D8H         PUBLIC        PCA0CN
   D:00B8H         PUBLIC        IP
-  C:092DH         PUBLIC        Oscillator_Init
-  C:094DH         PUBLIC        EX0_ISR
+  C:09CAH         PUBLIC        Oscillator_Init
+  C:092DH         PUBLIC        EX0_ISR
   D:00E1H         PUBLIC        XBR0
   D:00E2H         PUBLIC        XBR1
   D:00E3H         PUBLIC        XBR2
   D:00C0H         PUBLIC        SMB0CN
-  C:096DH         PUBLIC        main
+  C:09EAH         PUBLIC        main
   X:0000H         PUBLIC        fill
   D:0088H         PUBLIC        CPT0CN
   D:0088H         PUBLIC        CPT1CN
   D:0008H         PUBLIC        dummy
   D:00F8H         PUBLIC        SPI0CN
-  C:09D9H         PUBLIC        UART_Init
+  C:0A3CH         PUBLIC        UART_Init
   D:0089H         PUBLIC        TMOD
   D:0088H         PUBLIC        TCON
   D:00C8H         PUBLIC        TMR2CN
   D:00C8H         PUBLIC        TMR3CN
   D:00C8H         PUBLIC        TMR4CN
-  C:09E0H         PUBLIC        Interrupts_Init
+  C:0A43H         PUBLIC        Interrupts_Init
   D:0097H         PUBLIC        CLKSEL
   D:008AH         PUBLIC        OSCICN
   B:00A8H.1       PUBLIC        ET0
-BL51 BANKED LINKER/LOCATER V6.22            04/16/2025  13:31:46  PAGE 3
+BL51 BANKED LINKER/LOCATER V6.22            04/16/2025  15:43:49  PAGE 3
 
 
   D:000AH         PUBLIC        refresher
-  C:09E7H         PUBLIC        LED_Init
+  C:0A4AH         PUBLIC        LED_Init
   D:008CH         PUBLIC        TH0
   B:0098H.1       PUBLIC        TI0
   D:008DH         PUBLIC        TH1
@@ -153,111 +153,116 @@ SYMBOL TABLE OF MODULE:  C:\Users\seanb\Documents\Trinity-ENGR323-Embedded-Sys
   B:0090H.5       PUBLIC        MSEL1
   D:0098H         PUBLIC        SCON0
   D:0098H         PUBLIC        SCON1
-  C:09D1H         PUBLIC        ES_ISR
+  C:099BH         PUBLIC        ES_ISR
   D:000CH         PUBLIC        n
-  C:09A0H         PUBLIC        Timer_Init
+  C:0A1DH         PUBLIC        Timer_Init
   D:00D0H         PUBLIC        PSW
   -------         PROC          MAIN
-  C:096DH         LINE#         39
-  C:096DH         LINE#         41
-  C:0970H         LINE#         42
-  C:0973H         LINE#         44
-  C:0976H         LINE#         45
-  C:0979H         LINE#         46
-  C:097CH         LINE#         47
-  C:097FH         LINE#         48
-  C:0982H         LINE#         49
-  C:0985H         LINE#         51
-  C:0988H         LINE#         53
-  C:0988H         LINE#         55
+  C:09EAH         LINE#         39
+  C:09EAH         LINE#         41
+  C:09EDH         LINE#         42
+  C:09F0H         LINE#         44
+  C:09F3H         LINE#         45
+  C:09F6H         LINE#         46
+  C:09F9H         LINE#         47
+  C:09FCH         LINE#         48
+  C:09FFH         LINE#         49
+  C:0A02H         LINE#         51
+  C:0A05H         LINE#         53
+  C:0A05H         LINE#         55
   -------         ENDPROC       MAIN
   -------         PROC          LED_INIT
-  C:09E7H         LINE#         61
-  C:09E7H         LINE#         62
-  C:09E7H         LINE#         63
-  C:09EAH         LINE#         64
-  C:09ECH         LINE#         65
+  C:0A4AH         LINE#         61
+  C:0A4AH         LINE#         62
+  C:0A4AH         LINE#         63
+  C:0A4DH         LINE#         64
+  C:0A4FH         LINE#         65
   -------         ENDPROC       LED_INIT
   -------         PROC          TIMER_INIT
-  C:09A0H         LINE#         67
-  C:09A0H         LINE#         68
-  C:09A0H         LINE#         69
-  C:09A3H         LINE#         70
-  C:09A6H         LINE#         71
-  C:09A9H         LINE#         72
-  C:09ABH         LINE#         73
-  C:09AEH         LINE#         74
-  C:09B1H         LINE#         76
+  C:0A1DH         LINE#         67
+  C:0A1DH         LINE#         68
+  C:0A1DH         LINE#         69
+  C:0A20H         LINE#         70
+  C:0A23H         LINE#         71
+  C:0A26H         LINE#         72
+  C:0A28H         LINE#         73
+  C:0A2BH         LINE#         74
+  C:0A2EH         LINE#         76
   -------         ENDPROC       TIMER_INIT
   -------         PROC          UART_INIT
-  C:09D9H         LINE#         78
-  C:09D9H         LINE#         79
-  C:09D9H         LINE#         80
-  C:09DCH         LINE#         81
-  C:09DFH         LINE#         82
+  C:0A3CH         LINE#         78
+  C:0A3CH         LINE#         79
+  C:0A3CH         LINE#         80
+  C:0A3FH         LINE#         81
+  C:0A42H         LINE#         82
   -------         ENDPROC       UART_INIT
   -------         PROC          INTERRUPTS_INIT
-  C:09E0H         LINE#         84
-  C:09E0H         LINE#         85
-  C:09E0H         LINE#         86
-  C:09E3H         LINE#         87
-  C:09E6H         LINE#         88
+  C:0A43H         LINE#         84
+  C:0A43H         LINE#         85
+  C:0A43H         LINE#         86
+  C:0A46H         LINE#         87
+  C:0A49H         LINE#         88
   -------         ENDPROC       INTERRUPTS_INIT
-BL51 BANKED LINKER/LOCATER V6.22            04/16/2025  13:31:46  PAGE 4
+BL51 BANKED LINKER/LOCATER V6.22            04/16/2025  15:43:49  PAGE 4
 
 
   -------         PROC          OSCILLATOR_INIT
   -------         DO            
   D:0006H         SYMBOL        i
   -------         ENDDO         
-  C:092DH         LINE#         90
-  C:092DH         LINE#         91
-  C:092DH         LINE#         93
-  C:0930H         LINE#         94
-  C:0933H         LINE#         97
-  C:0936H         LINE#         100
-  C:0941H         LINE#         103
-  C:0946H         LINE#         106
-  C:0949H         LINE#         107
-  C:094CH         LINE#         108
+  C:09CAH         LINE#         90
+  C:09CAH         LINE#         91
+  C:09CAH         LINE#         93
+  C:09CDH         LINE#         94
+  C:09D0H         LINE#         97
+  C:09D3H         LINE#         100
+  C:09DEH         LINE#         103
+  C:09E3H         LINE#         106
+  C:09E6H         LINE#         107
+  C:09E9H         LINE#         108
   -------         ENDPROC       OSCILLATOR_INIT
   -------         PROC          PORT_IO_INIT
-  C:098AH         LINE#         110
-  C:098AH         LINE#         111
-  C:098AH         LINE#         113
-  C:098DH         LINE#         114
-  C:0990H         LINE#         117
-  C:0993H         LINE#         118
-  C:0996H         LINE#         120
-  C:0999H         LINE#         121
-  C:099CH         LINE#         122
-  C:099FH         LINE#         123
+  C:0A07H         LINE#         110
+  C:0A07H         LINE#         111
+  C:0A07H         LINE#         113
+  C:0A0AH         LINE#         114
+  C:0A0DH         LINE#         117
+  C:0A10H         LINE#         118
+  C:0A13H         LINE#         120
+  C:0A16H         LINE#         121
+  C:0A19H         LINE#         122
+  C:0A1CH         LINE#         123
   -------         ENDPROC       PORT_IO_INIT
   -------         PROC          FILLUP
   -------         DO            
-  D:0007H         SYMBOL        SFRPAGE_SAVE
+  D:0005H         SYMBOL        SFRPAGE_SAVE
+  D:0002H         SYMBOL        i
   -------         ENDDO         
-  C:09B2H         LINE#         129
-  C:09B2H         LINE#         130
-  C:09B2H         LINE#         131
-  C:09B4H         LINE#         141
-  C:09BAH         LINE#         143
-  C:09BDH         LINE#         144
-  C:09BFH         LINE#         145
-  C:09C1H         LINE#         147
-  C:09C3H         LINE#         148
+  C:0965H         LINE#         129
+  C:0965H         LINE#         130
+  C:0965H         LINE#         131
+  C:0967H         LINE#         134
+  C:096AH         LINE#         135
+  C:096AH         LINE#         136
+  C:0980H         LINE#         138
+  C:098BH         LINE#         141
+  C:0991H         LINE#         143
+  C:0994H         LINE#         144
+  C:0996H         LINE#         145
+  C:0998H         LINE#         147
+  C:099AH         LINE#         148
   -------         ENDPROC       FILLUP
   -------         PROC          EX0_ISR
-  C:094DH         LINE#         153
-  C:0956H         LINE#         155
-  C:095CH         LINE#         156
-  C:095CH         LINE#         157
-  C:095FH         LINE#         158
-  C:0961H         LINE#         160
-  C:0961H         LINE#         161
-  C:0963H         LINE#         162
-  C:0966H         LINE#         163
-  C:0966H         LINE#         164
+  C:092DH         LINE#         153
+  C:0942H         LINE#         155
+  C:0948H         LINE#         156
+  C:0948H         LINE#         157
+  C:094BH         LINE#         158
+  C:094DH         LINE#         160
+  C:094DH         LINE#         161
+  C:094FH         LINE#         162
+  C:0952H         LINE#         163
+  C:0952H         LINE#         164
   -------         ENDPROC       EX0_ISR
   -------         PROC          TIMER0_ISR
   -------         DO            
@@ -266,14 +271,14 @@ SYMBOL TABLE OF MODULE:  C:\Users\seanb\Documents\Trinity-ENGR323-Embedded-Sys
   C:0800H         LINE#         166
   C:0809H         LINE#         168
   C:080BH         LINE#         171
+BL51 BANKED LINKER/LOCATER V6.22            04/16/2025  15:43:49  PAGE 5
+
+
   C:080DH         LINE#         172
   C:0810H         LINE#         173
   C:0813H         LINE#         174
   C:0816H         LINE#         175
   C:0818H         LINE#         177
-BL51 BANKED LINKER/LOCATER V6.22            04/16/2025  13:31:46  PAGE 5
-
-
   C:081AH         LINE#         180
   C:0820H         LINE#         181
   C:0820H         LINE#         182
@@ -315,20 +320,31 @@ SYMBOL TABLE OF MODULE:  C:\Users\seanb\Documents\Trinity-ENGR323-Embedded-Sys
   C:089AH         LINE#         225
   -------         ENDPROC       TIMER0_ISR
   -------         PROC          ES_ISR
-  C:09D1H         LINE#         230
-  C:09D1H         LINE#         232
-  C:09D3H         LINE#         234
-  C:09D5H         LINE#         236
-  C:09D8H         LINE#         248
+  C:099BH         LINE#         230
+  C:099FH         LINE#         232
+  C:09A1H         LINE#         234
+  C:09A3H         LINE#         238
+  C:09B0H         LINE#         239
+  C:09B0H         LINE#         241
+  C:09B3H         LINE#         242
+  C:09BBH         LINE#         243
+  C:09BDH         LINE#         245
+  C:09BDH         LINE#         246
+  C:09C3H         LINE#         247
+  C:09C5H         LINE#         248
+  C:09C5H         LINE#         250
   -------         ENDPROC       ES_ISR
   -------         ENDMOD        MASTER
 
 ******************************************************************************
 >> 
-* RESTRICTED VERSION WITH 0800H BYTE CODE SIZE LIMIT; USED: 0169H BYTE (17%) *
+* RESTRICTED VERSION WITH 0800H BYTE CODE SIZE LIMIT; USED: 01CCH BYTE (22%) *
+BL51 BANKED LINKER/LOCATER V6.22            04/16/2025  15:43:49  PAGE 6
+
+
 >> 
 ******************************************************************************
 >> 
 
-Program Size: data=15.0 xdata=512 code=505
+Program Size: data=15.0 xdata=128 code=604
 LINK/LOCATE RUN COMPLETE.  0 WARNING(S),  0 ERROR(S)
