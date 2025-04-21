@@ -133,7 +133,7 @@ void fillup()
     
     for(i=0; i<64; i++)
     {
-        fill[i] = i;  // Write values from 0x00 to 0xFF to array
+        fill[i] = i;  // Write values from 0x00 to 0x3F to array
         
     }
 
@@ -237,8 +237,8 @@ void ES_ISR (void) interrupt 4
 
     if(n < 64)
     {
-        // SBUF0 = fill[n];  // Send data byte
-        SBUF0 = 24; // Send the value 24
+        SBUF0 = fill[n];  // Send data byte
+        // SBUF0 = 24; // Send the value 24
         n++;
     }
     else

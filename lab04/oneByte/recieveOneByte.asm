@@ -1,4 +1,6 @@
-ORG     0000h           
+            MY_ADDR       EQU   05h       ; Slave's own address (must match master)
+            
+            ORG     0000h           
             AJMP    MAIN           
 
             ORG     0023h          ; Serial port interrupt vector
