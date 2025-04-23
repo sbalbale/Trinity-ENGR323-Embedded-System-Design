@@ -1,5 +1,4 @@
-Below is an example Arduino sketch for the Uno R4 WiFi that:
-
+# Lab 5: DC Motor Control with Arduino Uno R4 WiFis
 1. Generates a PWM signal on pin 3 to drive your motor (via an H-bridge).  
 2. Reads pulses from the YC-52010 Hall sensor on pin 2 (one pulse per revolution).  
 3. Blinks the built-in LED (pin 13) at a rate proportional to the target RPM.  
