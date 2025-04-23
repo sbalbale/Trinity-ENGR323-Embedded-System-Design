@@ -1,61 +1,149 @@
 #include <LiquidCrystal.h>
 
-// LCD pins: RS, E, D4, D5, D6, D7
-LiquidCrystal lcd(7, 8, 9, 10, 11, 12);
+// ── USER CONFIG ───────────────────────────────────────────────────────────────
+// Pins
+const uint8_t MOTOR_PIN      = 3;   // PWM output (must be a PWM-capable pin)
+const uint8_t HALL_PIN       = 2;   // Hall-effect sensor input (INT0)
+const uint8_t LED_PIN        = 13;  // Built-in LED pin
+const uint8_t LCD_RS         = 8;
+const uint8_t LCD_E          = 9;
+const uint8_t LCD_D4         = 4;
+const uint8_t LCD_D5         = 5;
+const uint8_t LCD_D6         = 6;
+const uint8_t LCD_D7         = 7;
 
-const int pwmPin       = 5;   // SN754410 EN (PWM)
-const int dirPin1      = 3;   // SN754410 1A
-const int dirPin2      = 4;   // SN754410 2A
-const int encoderPin   = 2;   // INT0
-const int pulsesPerRev = 80;  // encoder counts per rev 
+// Motor characteristics
+const uint16_t PULSES_PER_REV = 1;    // adjust if your sensor gives more pulses per revolution
+const uint16_t MAX_RPM        = 5000; // maximum expected RPM for mapping
 
-volatile unsigned long pulseCount     = 0;
-unsigned long          lastPulseCount = 0;
-unsigned long          lastMillis     = 0;
-const unsigned long    interval       = 1000; // ms
+// Measurement
+const unsigned long INTERVAL_MS = 1000; // compute RPM every 1000 ms
 
-void countPulse() {
+// ── GLOBALS ───────────────────────────────────────────────────────────────────
+LiquidCrystal lcd(LCD_RS, LCD_E, LCD_D4, LCD_D5, LCD_D6, LCD_D7);
+
+volatile uint32_t pulseCount = 0;  // incremented in ISR
+uint32_t lastMeasureTime      = 0;
+uint16_t targetRPM            = 0;
+unsigned long lastBlinkTime   = 0; // Time LED was last toggled
+bool ledState                 = LOW; // Current state of the LED
+
+
+// ── INTERRUPT SERVICE ROUTINE ────────────────────────────────────────────────
+void onHallPulse() {
   pulseCount++;
 }
 
-void setup() {
-  // H-bridge direction pins
-  pinMode(dirPin1, OUTPUT);
-  pinMode(dirPin2, OUTPUT);
-  // start in “forward”
-  digitalWrite(dirPin1, HIGH);
-  digitalWrite(dirPin2, LOW);
+// ── LED BLINK FUNCTION ────────────────────────────────────────────────────────
+void blinkLed() {
+  if (targetRPM == 0) {
+    // If target RPM is 0, turn LED off and return
+    if (ledState == HIGH) {
+      digitalWrite(LED_PIN, LOW);
+      ledState = LOW;
+    }
+    return;
+  }
 
-  // PWM pin
-  pinMode(pwmPin, OUTPUT);
+  // Calculate blink frequency (Hz) = (targetRPM / 10) / 60
+  // Calculate period (ms) = 1000 / frequency = 1000 * 60 * 10 / targetRPM = 600000 / targetRPM
+  // Half period (for on or off time) = 300000 / targetRPM
+  unsigned long blinkInterval = 300000UL / targetRPM; // Time in ms for half cycle (on or off)
 
-  // encoder input
-  pinMode(encoderPin, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(encoderPin), countPulse, RISING);
+  // Prevent division by zero or extremely fast blinking if targetRPM is very high momentarily
+  if (blinkInterval == 0) blinkInterval = 1; // Minimum interval to prevent issues
 
-  // LCD init
-  lcd.begin(16, 2);
-  lcd.print("RPM: --");
+  unsigned long now = millis();
+  if (now - lastBlinkTime >= blinkInterval) {
+    ledState = !ledState; // Toggle LED state
+    digitalWrite(LED_PIN, ledState);
+    lastBlinkTime = now; // Reset the timer
+  }
 }
 
-void loop() {
-  // Example: full-speed forward
-  analogWrite(pwmPin, 255);  // 0–255 duty cycle citeturn2file5
+// ── SETUP ─────────────────────────────────────────────────────────────────────
+void setup() {
+  // LCD
+  lcd.begin(16, 2);
+  lcd.print("DC Motor Ctrl");
 
-  // measure RPM every second
-  if (millis() - lastMillis >= interval) {
+  // Serial
+  Serial.begin(9600);
+  Serial.println();
+  Serial.println("Enter target RPM and press ↵");
+
+  // Motor PWM pin
+  pinMode(MOTOR_PIN, OUTPUT);
+  analogWrite(MOTOR_PIN, 0);
+
+  // Hall sensor input with pull-up
+  pinMode(HALL_PIN, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(HALL_PIN), onHallPulse, RISING);
+
+  // LED pin
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, LOW); // Start with LED off
+
+  lastMeasureTime = millis();
+}
+
+// ── MAIN LOOP ─────────────────────────────────────────────────────────────────
+void loop() {
+   // — Blink LED based on target RPM —
+   blinkLed();
+
+  // — check for new target RPM from Serial —
+  if (Serial.available()) {
+    // read up to the newline, trim off any whitespace
+    String line = Serial.readStringUntil('\n');
+    line.trim();
+    if (line.length() > 0) {
+      long val = line.toInt();
+      if (val >= 0 && val <= MAX_RPM) {
+        targetRPM = val;
+        // update PWM duty
+        uint8_t duty = map(targetRPM, 0, MAX_RPM, 0, 255);
+        analogWrite(MOTOR_PIN, duty);
+        Serial.print(">> Target set to ");
+        Serial.print(targetRPM);
+        Serial.println(" RPM");
+      } else {
+        Serial.println("! Invalid RPM (0–" + String(MAX_RPM) + ")");
+      }
+    }
+    // if line was blank (just a newline), we do nothing and leave targetRPM unchanged
+  }
+  
+
+  // — every INTERVAL_MS, compute and display actual RPM —
+  unsigned long now = millis();
+  if (now - lastMeasureTime >= INTERVAL_MS) {
+    // snapshot & reset pulse count atomically
     noInterrupts();
-      unsigned long count = pulseCount - lastPulseCount;
-      lastPulseCount = pulseCount;
+    uint32_t pulses = pulseCount;
+    pulseCount = 0;
     interrupts();
 
-    unsigned long rpm = (count * 60000UL) / (pulsesPerRev * interval);
+    // calculate RPM: (pulses / PULSES_PER_REV) * (60 000 ms / INTERVAL_MS)
+    uint32_t actualRPM = (uint32_t)pulses * 60UL * (1000UL / INTERVAL_MS) / PULSES_PER_REV;
 
-    lcd.setCursor(5, 0);
-    lcd.print("    ");
-    lcd.setCursor(5, 0);
-    lcd.print(rpm);
+    // — update LCD —
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Tgt:");
+    lcd.print(targetRPM);
+    lcd.print("rpm");
+    lcd.setCursor(0, 1);
+    lcd.print("Act:");
+    lcd.print(actualRPM);
+    lcd.print("rpm");
 
-    lastMillis = millis();
+    // — print to Serial —
+    Serial.print("Target RPM: ");
+    Serial.print(targetRPM);
+    Serial.print("  |  Actual RPM: ");
+    Serial.println(actualRPM);
+
+    lastMeasureTime = now;
   }
 }
