@@ -13,12 +13,25 @@ const uint8_t HALL_PIN = 2; // Hall-effect sensor input (INT0) must be D2 for ex
 const uint8_t LED_PIN = 13; // Built-in LED pin
 
 // LCD (4-bit data + RS/E)
+// const uint8_t LCD_RS = 8;
+// const uint8_t LCD_E = 9;
+// const uint8_t LCD_D4 = 4;
+// const uint8_t LCD_D5 = 5;
+// const uint8_t LCD_D6 = 6;
+// const uint8_t LCD_D7 = 7;
+
+
 const uint8_t LCD_RS = 8;
 const uint8_t LCD_E = 9;
+const uint8_t LCD_D0 = 10;
+const uint8_t LCD_D1 = 11;
+const uint8_t LCD_D2 = 12;
+const uint8_t LCD_D3 = 13;
 const uint8_t LCD_D4 = 4;
 const uint8_t LCD_D5 = 5;
 const uint8_t LCD_D6 = 6;
 const uint8_t LCD_D7 = 7;
+
 
 // Motor characteristics
 const uint16_t PULSES_PER_REV = 1; // adjust if your sensor gives more pulses per revolution
@@ -28,7 +41,8 @@ const uint16_t MAX_RPM = 5000;     // maximum expected RPM for mapping
 const unsigned long INTERVAL_MS = 1000; // compute RPM every 1000 ms
 
 // ── GLOBALS ───────────────────────────────────────────────────────────────────
-LiquidCrystal lcd(LCD_RS, LCD_E, LCD_D4, LCD_D5, LCD_D6, LCD_D7);
+// LiquidCrystal lcd(LCD_RS, LCD_E, LCD_D4, LCD_D5, LCD_D6, LCD_D7);
+LiquidCrystal lcd(LCD_RS, LCD_E, LCD_D0, LCD_D1, LCD_D2, LCD_D3, LCD_D4, LCD_D5, LCD_D6, LCD_D7);
 
 volatile uint32_t pulseCount = 0; // incremented in ISR
 uint32_t lastMeasureTime = 0;

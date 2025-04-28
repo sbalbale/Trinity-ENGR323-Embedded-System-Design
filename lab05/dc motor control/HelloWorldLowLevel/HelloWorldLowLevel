@@ -1,0 +1,203 @@
+
+/*
+  Low-Level LCD Control Example (8-Bit Mode, No R/W Pin)
+
+  Demonstrates direct control of an HD44780-compatible LCD without
+  the LiquidCrystal library AND without using the R/W pin (tied to ground).
+  Relies on fixed delays instead of reading the busy flag.
+
+  Wiring (Based on User Code, R/W Tied to Ground):
+  * LCD RS pin to Arduino pin 8
+  * LCD R/W pin to GROUND             <-- IMPORTANT: Tie this to GND
+  * LCD Enable pin to Arduino pin 9
+  * LCD D0 pin to Arduino pin 10
+  * LCD D1 pin to Arduino pin 11
+  * LCD D2 pin to Arduino pin 12
+  * LCD D3 pin to Arduino pin 13
+  * LCD D4 pin to Arduino pin 4
+  * LCD D5 pin to Arduino pin 5
+  * LCD D6 pin to Arduino pin 6
+  * LCD D7 pin to Arduino pin 7
+  * LCD VSS pin to ground
+  * LCD VCC pin to 5V
+  * 10K resistor wiper to LCD VO pin (pin 3) for contrast
+*/
+
+// --- Pin Definitions ---
+const uint8_t LCD_RS = 8;
+// const uint8_t LCD_RW = 14; // R/W Pin is NOT used, tied to Ground
+const uint8_t LCD_E  = 9;
+const uint8_t LCD_D0 = 10;
+const uint8_t LCD_D1 = 11;
+const uint8_t LCD_D2 = 12;
+const uint8_t LCD_D3 = 13;
+const uint8_t LCD_D4 = 4;
+const uint8_t LCD_D5 = 5;
+const uint8_t LCD_D6 = 6;
+const uint8_t LCD_D7 = 7;
+
+// Array to easily manage data pins
+const uint8_t LCD_DATA_PINS[8] = {LCD_D0, LCD_D1, LCD_D2, LCD_D3, LCD_D4, LCD_D5, LCD_D6, LCD_D7};
+
+// --- LCD Command Codes ---
+#define LCD_CLEARDISPLAY   0x01
+#define LCD_RETURNHOME     0x02
+#define LCD_ENTRYMODESET   0x04
+#define LCD_DISPLAYCONTROL 0x08
+#define LCD_CURSORSHIFT    0x10
+#define LCD_FUNCTIONSET    0x20
+#define LCD_SETCGRAMADDR   0x40
+#define LCD_SETDDRAMADDR   0x80
+
+// Entry Mode flags
+#define LCD_ENTRYLEFT          0x02
+#define LCD_ENTRYSHIFTDECREMENT 0x00
+#define LCD_ENTRYSHIFTINCREMENT 0x01
+
+// Display Control flags
+#define LCD_DISPLAYON  0x04
+#define LCD_DISPLAYOFF 0x00
+#define LCD_CURSORON   0x02
+#define LCD_CURSOROFF  0x00
+#define LCD_BLINKON    0x01
+#define LCD_BLINKOFF   0x00
+
+// Function Set flags
+#define LCD_8BITMODE 0x10
+#define LCD_4BITMODE 0x00
+#define LCD_2LINE    0x08
+#define LCD_1LINE    0x00
+#define LCD_5x10DOTS 0x04
+#define LCD_5x8DOTS  0x00
+
+// --- Low-Level Helper Functions (No Busy Check) ---
+
+// Pulse the Enable pin HIGH then LOW
+void pulseEnable() {
+  digitalWrite(LCD_E, LOW);
+  delayMicroseconds(1);
+  digitalWrite(LCD_E, HIGH);
+  delayMicroseconds(1); // Enable pulse width must be > 450 ns
+  digitalWrite(LCD_E, LOW);
+  // NOTE: The delay allowing the command to execute is now ADDED
+  //       within lcdCommand and lcdWrite AFTER this function is called.
+}
+
+// Write a byte to the 8 data pins
+void write8bits(uint8_t value) {
+  for (int i = 0; i < 8; i++) {
+    digitalWrite(LCD_DATA_PINS[i], (value >> i) & 0x01);
+  }
+}
+
+// Send a command byte to the LCD (using delays instead of busy flag)
+void lcdCommand(uint8_t command) {
+  digitalWrite(LCD_RS, LOW);  // Select Instruction Register (RS=0)
+  // digitalWrite(LCD_RW, LOW); // RW is tied LOW (Ground)
+  write8bits(command);        // Output the command byte
+  pulseEnable();              // Latch the command
+
+  // Use appropriate delays based on the command
+  if (command == LCD_CLEARDISPLAY || command == LCD_RETURNHOME) {
+    delayMicroseconds(1600); // These commands take longer (typ 1.52ms/1.64ms) - Use 2000 for safety?
+  } else {
+    delayMicroseconds(40);   // Most other commands are faster (typ ~37us) - Use 50-100 for safety?
+  }
+}
+
+// Send a data byte (character) to the LCD (using delays instead of busy flag)
+void lcdWrite(uint8_t data) {
+  digitalWrite(LCD_RS, HIGH); // Select Data Register (RS=1)
+  // digitalWrite(LCD_RW, LOW); // RW is tied LOW (Ground)
+  write8bits(data);           // Output the data byte
+  pulseEnable();              // Latch the data
+  delayMicroseconds(45);      // Data writes are similar speed to commands - Use 50-100 for safety?
+}
+
+// Print a string to the LCD
+void lcdPrint(const char *str) {
+  while (*str) {
+    lcdWrite(*str++);
+  }
+}
+
+// Initialize the LCD in 8-bit mode (No R/W pin)
+void lcdInit() {
+  // Set control and data pins to output initially
+  pinMode(LCD_RS, OUTPUT);
+  // pinMode(LCD_RW, OUTPUT); // R/W Pin is NOT used
+  pinMode(LCD_E, OUTPUT);
+  for (int i = 0; i < 8; i++) {
+    pinMode(LCD_DATA_PINS[i], OUTPUT);
+  }
+
+  // Initialization Sequence (from HD44780 datasheet for 8-bit)
+  // Needs careful delays since we cannot check the busy flag.
+  delayMicroseconds(50000); // Wait >40ms after Vcc rises to 4.5V
+
+  // --- Start special function set sequence ---
+  digitalWrite(LCD_RS, LOW);
+  // digitalWrite(LCD_RW, LOW); // RW is tied LOW
+
+  // Send Function set command 0x30 = 00110000
+  write8bits(LCD_FUNCTIONSET | LCD_8BITMODE);
+  pulseEnable(); // Includes short delay
+  delayMicroseconds(4500); // Wait more than 4.1ms
+
+  // Send Function set command 0x30 again
+  write8bits(LCD_FUNCTIONSET | LCD_8BITMODE);
+  pulseEnable(); // Includes short delay
+  delayMicroseconds(150); // Wait more than 100us
+
+  // Send Function set command 0x30 again
+  write8bits(LCD_FUNCTIONSET | LCD_8BITMODE);
+  pulseEnable(); // Includes short delay
+  delayMicroseconds(150); // Add delay for safety
+  // --- End special function set sequence ---
+
+  // Now normal commands can be sent
+
+  // Function Set: 8-bit, 2 Line, 5x8 dots
+  // This command uses the standard delay built into lcdCommand
+  lcdCommand(LCD_FUNCTIONSET | LCD_8BITMODE | LCD_2LINE | LCD_5x8DOTS);
+
+  // Display Control: Display OFF initially
+  lcdCommand(LCD_DISPLAYCONTROL | LCD_DISPLAYOFF | LCD_CURSOROFF | LCD_BLINKOFF);
+
+  // Clear Display - lcdCommand handles the required long delay
+  lcdCommand(LCD_CLEARDISPLAY);
+
+  // Entry Mode Set: Increment cursor, no display shift
+  lcdCommand(LCD_ENTRYMODESET | LCD_ENTRYLEFT);
+
+  // Display Control: Display ON, Cursor OFF, Blink OFF
+  lcdCommand(LCD_DISPLAYCONTROL | LCD_DISPLAYON | LCD_CURSOROFF | LCD_BLINKOFF);
+}
+
+// --- Main Arduino Sketch ---
+
+void setup() {
+  // Initialize the LCD using low-level commands (with delays)
+  lcdInit();
+
+  // Print a message to the LCD using the low-level function
+  lcdPrint("hello, world!");
+}
+
+void loop() {
+  // set the cursor to column 0, line 1 (DDRAM address 0x40)
+  // Line 0 starts at 0x00, Line 1 starts at 0x40
+  lcdCommand(LCD_SETDDRAMADDR | 0x40); // Uses standard delay
+
+  // print the number of seconds since reset:
+  char timeStr[11]; // Buffer for time string (max 10 digits for 32-bit unsigned long + null)
+  ltoa(millis() / 1000, timeStr, 10); // Convert unsigned long to string (base 10)
+  lcdPrint(timeStr); // lcdWrite inside lcdPrint adds delays after each char
+
+  // Pad remaining spaces on the second line if needed (optional)
+  for (int i = strlen(timeStr); i < 16; i++) {
+     lcdWrite(' '); // Adds delay after each space
+  }
+
+  delay(100); // Add some delay to the main loop to control update rate
+}
