@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "c8051f120.h": "c"
+        "c8051f120.h": "c",
+        "helloworldlowlevel": "cpp"
     }
 }
