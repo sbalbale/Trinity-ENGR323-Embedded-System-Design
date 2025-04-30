@@ -27,9 +27,9 @@ const uint16_t MAX_RPM = 500;       // maximum expected RPM for mapping
 // Measurement
 const unsigned long INTERVAL_MS = 1000; // compute RPM every 1000 ms
 
-const float RPM_CALIBRATION_FACTOR = 0.2;
+const float RPM_CALIBRATION_FACTOR = 0.25;
 
-const float KP = 0.8;             // Proportional gain
+const float KP = 0.25;             // Proportional gain
 const float KI = 0.7;             // Integral gain
 const float KD = 0.05;            // Derivative gain
 const float MAX_INTEGRAL = 400.0; // Anti-windup limit
@@ -139,7 +139,7 @@ void loop()
         else
         {
           // Minimum duty needed is about 50-60 for most DC motors to start moving
-          duty = map(targetRPM, 1, MAX_RPM, 60, 255);
+          duty = map(targetRPM, 1, MAX_RPM, 100, 255);
         }
         analogWrite(MOTOR_PIN, duty);
         Serial.print(">> Target set to ");
@@ -174,7 +174,7 @@ void loop()
       // Set initial duty if coming from zero (motor was off)
       if (currentDuty < 60)
       {
-        currentDuty = map(targetRPM, 1, MAX_RPM, 80, 255); // Increased minimum from 60 to 80
+        currentDuty = map(targetRPM, 1, MAX_RPM, 100, 255); // Increased minimum from 60 to 80
       }
 
       // Calculate PID terms
@@ -216,7 +216,7 @@ void loop()
       }
 
       // Update duty cycle with constraints
-      int newDuty = constrain(currentDuty + adjustment, 80, 255); // Increased minimum from 60 to 80
+      int newDuty = constrain(currentDuty + adjustment, 100, 255); // Increased minimum from 60 to 80
 
       // Always update the motor
       currentDuty = newDuty;
